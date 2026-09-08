@@ -2,6 +2,7 @@
   "name": "helpdesk-ticketing-system",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "description": "HelpDesk Pro - Internal IT Service Management Platform",
   "workspaces": [
     "apps/*",
@@ -27,7 +28,12 @@
     "db:use:postgresql": "node packages/database/scripts/set-provider.js postgresql"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^15.15.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.70.0"
   },
   "engines": {
     "node": ">=20.0.0"
