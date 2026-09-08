@@ -7,10 +7,10 @@ track support tickets, technicians triage/assign/resolve them against
 configurable SLAs, and administrators manage users, departments, assets,
 the knowledge base, and audit history.
 
-**Live Demo:** _see [Deployment Status](#deployment-status) below - the
-frontend is deployed to GitHub Pages once this repo is pushed and Pages is
-enabled; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact steps._
-**GitHub Repository:** _see the repository this README lives in._
+**Live Demo:** https://themilansoni.github.io/helpdesk-ticketing-system/
+(frontend only - see [Deployment Status](#deployment-status), the API
+isn't deployed yet so login won't complete until it is)
+**GitHub Repository:** https://github.com/themilansoni/helpdesk-ticketing-system
 
 ---
 
@@ -261,9 +261,9 @@ badges.
 
 ## Deployment Status
 
-- Frontend: **NOT YET LIVE** until this repo is pushed to GitHub and Pages
-  is enabled (Settings -> Pages -> Source: GitHub Actions) - see
-  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- Frontend: **LIVE** - https://themilansoni.github.io/helpdesk-ticketing-system/
+  (redeploys automatically on every push to `main`; API calls will fail
+  until `VITE_API_BASE_URL` is set per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 - Backend: **NOT LIVE** - deployment-ready (Dockerfile + full env config),
   but not deployed since no hosting credentials were available in this
   environment. Follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) to deploy it.
