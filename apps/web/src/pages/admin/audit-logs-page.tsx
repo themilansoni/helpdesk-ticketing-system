@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollText, Search } from "lucide-react";
-import { api } from "@/lib/api";
+import { auditDb } from "@/lib/db";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
-import type { AuditLogEntry, PaginatedResult } from "@/types";
 
 const PAGE_SIZE = 20;
 
@@ -20,7 +19,7 @@ export default function AuditLogsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["audit-logs", search, page],
-    queryFn: () => api.get<PaginatedResult<AuditLogEntry>>("/audit-logs", { search: search || undefined, page, pageSize: PAGE_SIZE }),
+    queryFn: () => auditDb.listAuditLogs({ search: search || undefined, page, pageSize: PAGE_SIZE }),
   });
 
   return (
@@ -56,7 +55,6 @@ export default function AuditLogsPage() {
                   <TableHead>Action</TableHead>
                   <TableHead>Entity</TableHead>
                   <TableHead>New Value</TableHead>
-                  <TableHead>IP Address</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -69,7 +67,6 @@ export default function AuditLogsPage() {
                       {log.entityType} <span className="text-muted-foreground">#{log.entityId.slice(0, 8)}</span>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">{log.newValue ?? "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{log.ipAddress ?? "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

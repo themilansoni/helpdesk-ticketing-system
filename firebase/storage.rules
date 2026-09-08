@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isTicketStaff() {
+      return signedIn() && myRole() in ['Technician', 'Manager', 'Administrator'];
+    }
+
+    // Ticket attachments live at tickets/{ticketId}/{fileName}. Staff can
+    // reach every ticket's files; an employee only their own ticket's,
+    // checked via a cross-service read of the Firestore ticket doc.
+    match /tickets/{ticketId}/{fileName} {
+      function ticketRequester() {
+        return firestore.get(/databases/(default)/documents/tickets/$(ticketId)).data.requesterId;
+      }
+
+      allow read: if isTicketStaff() || (signedIn() && ticketRequester() == request.auth.uid);
+      allow write: if (isTicketStaff() || (signedIn() && ticketRequester() == request.auth.uid))
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf|text/plain|text/csv|application/msword|application/vnd\\.openxmlformats-officedocument\\..*|application/vnd\\.ms-excel|application/zip');
+      allow delete: if false;
+    }
+  }
+}

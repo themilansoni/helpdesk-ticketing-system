@@ -1,0 +1,188 @@
+rules_version = '2';
+
+// Security model for HelpDesk Pro running without Cloud Functions: every
+// write comes directly from an authenticated client, so these rules are
+// the *only* enforcement layer (mirroring packages/shared/src/permissions.ts,
+// which is what the UI itself is gated on - these rules are the trust
+// boundary in case that client-side gating is ever bypassed).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function myRole() {
+      return signedIn() ? myProfile().role : null;
+    }
+
+    function isActive() {
+      return signedIn() && myProfile().status == 'active';
+    }
+
+    // Technician, Manager, or Administrator - matches TICKET_VIEW_ALL /
+    // TICKET_ASSIGN / TICKET_CHANGE_STATUS / TICKET_CHANGE_PRIORITY /
+    // TICKET_ADD_INTERNAL_NOTE / TICKET_ESCALATE / REPORTS_VIEW in
+    // packages/shared/src/permissions.ts.
+    function isTicketStaff() {
+      return isActive() && myRole() in ['Technician', 'Manager', 'Administrator'];
+    }
+
+    // Matches ASSET_MANAGE / KNOWLEDGE_MANAGE (Technician + Administrator only).
+    function isOpsManager() {
+      return isActive() && myRole() in ['Technician', 'Administrator'];
+    }
+
+    function isAdmin() {
+      return isActive() && myRole() == 'Administrator';
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // ---- Reference / lookup data: read by everyone, written by admins ----
+    match /departments/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /locations/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /ticketCategories/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /ticketSubcategories/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /assetTypes/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /knowledgeCategories/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /priorities/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /systemSettings/{key} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Atomic ticket-number sequence. Content is just an integer with no
+    // sensitive meaning, so any active user may touch it (needed inside the
+    // client-side transaction that runs on ticket creation) - the only
+    // rule that matters is that it can only ever increase by exactly 1.
+    match /counters/{key} {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.value == 1;
+      allow update: if isActive() && request.resource.data.value == resource.data.value + 1;
+      allow delete: if false;
+    }
+
+    // ---- Users ----
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if isTicketStaff();
+      allow create: if isAdmin();
+      // Admins can edit anyone; a signed-in user may only ever touch their
+      // own lastLoginAt timestamp on their own document (set at login).
+      allow update: if isAdmin()
+        || (isSelf(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLoginAt']));
+      allow delete: if false;
+    }
+
+    // ---- Tickets ----
+    match /tickets/{ticketId} {
+      // For `list`, Firestore requires every possible result to satisfy
+      // this same condition - which holds only because the app's employee
+      // queries always include a `where('requesterId','==',uid)` filter
+      // (see listTickets in src/lib/db/tickets.ts). An employee cannot
+      // bypass this with an unfiltered query; Firestore rejects it.
+      allow get, list: if isTicketStaff() || (isActive() && resource.data.requesterId == request.auth.uid);
+      allow create: if isActive()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'New'
+        && request.resource.data.reopenedCount == 0;
+      // All mutations after creation (assign/status/priority/escalate/
+      // first-response tracking) are staff-gated actions in the UI.
+      allow update: if isTicketStaff();
+      allow delete: if false;
+    }
+
+    match /ticketComments/{id} {
+      function parentTicket() {
+        return get(/databases/$(database)/documents/tickets/$(resource.data.ticketId)).data;
+      }
+      function parentTicketForCreate() {
+        return get(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId)).data;
+      }
+      allow read: if isTicketStaff() || (isActive() && parentTicket().requesterId == request.auth.uid);
+      allow create: if isActive()
+        && request.resource.data.authorId == request.auth.uid
+        && (isTicketStaff() || parentTicketForCreate().requesterId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    match /ticketNotes/{id} {
+      allow read: if isTicketStaff();
+      allow create: if isTicketStaff() && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /ticketHistory/{id} {
+      function parentTicket() {
+        return get(/databases/$(database)/documents/tickets/$(resource.data.ticketId)).data;
+      }
+      allow read: if isTicketStaff() || (isActive() && parentTicket().requesterId == request.auth.uid);
+      allow create: if isActive();
+      allow update, delete: if false;
+    }
+
+    // ---- Assets ----
+    match /assets/{id} {
+      allow read: if isActive();
+      allow write: if isOpsManager();
+    }
+
+    // ---- Knowledge base ----
+    match /knowledgeArticles/{id} {
+      allow read: if isActive() && (resource.data.status == 'published' || myRole() != 'Employee');
+      allow create: if isOpsManager();
+      allow update: if isOpsManager()
+        || (isActive() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpfulCount', 'notHelpfulCount', 'viewCount']));
+      allow delete: if isOpsManager();
+    }
+
+    // ---- Notifications ----
+    match /notifications/{id} {
+      allow read: if isActive() && resource.data.userId == request.auth.uid;
+      // Any active user may create a notification for another user (e.g.
+      // notifying a technician they were assigned a ticket) - there is no
+      // server to broker this without Cloud Functions. Recipients can only
+      // ever read their own notifications, so this cannot leak data, only
+      // spam another user's feed - a deliberate, documented trade-off.
+      allow create: if isActive();
+      allow update: if isActive() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow delete: if false;
+    }
+
+    // ---- Audit logs ----
+    match /auditLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isActive() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

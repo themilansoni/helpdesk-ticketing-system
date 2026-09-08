@@ -2,11 +2,14 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { KeyRound, PlusCircle, Search, Users as UsersIcon } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { usersDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { ROLES, type RoleName } from "@helpdesk/shared";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,13 +28,14 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useDepartments } from "@/hooks/use-reference-data";
 import { debounce } from "@/lib/utils";
-import type { CurrentUser, PaginatedResult } from "@/types";
+import type { CurrentUser } from "@/types";
 
 const ALL = "__all__";
 const PAGE_SIZE = 15;
 
 export default function UsersPage() {
   const [params] = useSearchParams();
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: departments } = useDepartments();
@@ -42,15 +46,13 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<CurrentUser | null>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const debouncedSearch = useMemo(() => debounce((v: string) => { setSearch(v); setPage(1); }, 300), []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", search, role, status, page],
     queryFn: () =>
-      api.get<PaginatedResult<CurrentUser>>("/users", {
+      usersDb.listUsers({
         search: search || undefined,
         role: role === ALL ? undefined : role,
         status: status === ALL ? undefined : status,
@@ -60,8 +62,7 @@ export default function UsersPage() {
   });
 
   const toggleStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "active" | "disabled" }) =>
-      api.post(`/users/${id}/${status === "active" ? "enable" : "disable"}`),
+    mutationFn: ({ id, status }: { id: string; status: "active" | "disabled" }) => usersDb.setUserStatus(id, status, currentUser!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast({ title: "User status updated" });
@@ -69,13 +70,11 @@ export default function UsersPage() {
   });
 
   const resetPassword = useMutation({
-    mutationFn: () => api.post(`/users/${resetTarget?.id}/reset-password`, { password: newPassword }),
+    mutationFn: () => usersDb.sendUserPasswordReset(resetTarget!.email, currentUser!.id, resetTarget!.id),
     onSuccess: () => {
-      toast({ title: "Password reset" });
+      toast({ title: "Password reset email sent", description: `An email was sent to ${resetTarget?.email}.` });
       setResetTarget(null);
-      setNewPassword("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to reset password."),
   });
 
   // --- Create user form state ---
@@ -91,16 +90,19 @@ export default function UsersPage() {
 
   const createUser = useMutation({
     mutationFn: () =>
-      api.post("/users", {
-        employeeId,
-        firstName,
-        lastName,
-        email,
-        password,
-        roleName,
-        departmentId: departmentId || undefined,
-        jobTitle: jobTitle || undefined,
-      }),
+      usersDb.createUser(
+        {
+          employeeId,
+          firstName,
+          lastName,
+          email,
+          password,
+          roleName,
+          departmentId: departmentId || undefined,
+          jobTitle: jobTitle || undefined,
+        },
+        currentUser!.id
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast({ title: "User created" });
@@ -112,7 +114,7 @@ export default function UsersPage() {
       setPassword("");
       setJobTitle("");
     },
-    onError: (err) => setCreateError(err instanceof ApiError ? err.message : "Unable to create user."),
+    onError: (err) => setCreateError(getErrorMessage(err, "Unable to create user.")),
   });
 
   return (
@@ -133,7 +135,7 @@ export default function UsersPage() {
           <Input placeholder="Search by name or email..." className="pl-8" onChange={(e) => debouncedSearch(e.target.value)} />
         </div>
         <Select value={role} onValueChange={(v) => { setRole(v); setPage(1); }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectTrigger className="w-40" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All roles</SelectItem>
             {ROLES.map((r) => (
@@ -142,7 +144,7 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-36" aria-label="Status"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -194,7 +196,7 @@ export default function UsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setResetTarget(u)}>
-                            <KeyRound className="mr-2 h-3.5 w-3.5" /> Reset Password
+                            <KeyRound className="mr-2 h-3.5 w-3.5" /> Send Password Reset
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => toggleStatus.mutate({ id: u.id, status: u.status === "active" ? "disabled" : "active" })}
@@ -244,7 +246,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <Label>Role</Label>
               <Select value={roleName} onValueChange={(v) => setRoleName(v as RoleName)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Role"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ROLES.map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -255,7 +257,7 @@ export default function UsersPage() {
             <div className="space-y-1.5">
               <Label>Department</Label>
               <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectTrigger aria-label="Department"><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
                   {departments?.map((d) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
@@ -277,22 +279,15 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!resetTarget} onOpenChange={(v) => !v && setResetTarget(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Reset password for {resetTarget?.firstName} {resetTarget?.lastName}</DialogTitle></DialogHeader>
-          <div className="space-y-1.5">
-            <Label>New password</Label>
-            <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 8 characters" />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
-            <Button disabled={newPassword.length < 8 || resetPassword.isPending} onClick={() => resetPassword.mutate()}>
-              {resetPassword.isPending ? "Saving..." : "Reset Password"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!resetTarget}
+        onOpenChange={(v) => !v && setResetTarget(null)}
+        title={`Send a password reset email to ${resetTarget?.firstName} ${resetTarget?.lastName}?`}
+        description={`Firebase will email a reset link directly to ${resetTarget?.email}.`}
+        confirmLabel="Send Email"
+        isLoading={resetPassword.isPending}
+        onConfirm={() => resetPassword.mutate()}
+      />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,13 +11,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import type { Ticket } from "@/types";
 
 export function EscalateDialog({ ticket, open, onOpenChange }: { ticket: Ticket; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { user } = useAuth();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const escalate = useMutation({
-    mutationFn: () => api.post(`/tickets/${ticket.id}/escalate`, { note: note || undefined }),
+    mutationFn: () => ticketsDb.escalateTicket(ticket.id, user!, note || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", ticket.id] });
       queryClient.invalidateQueries({ queryKey: ["ticket-history", ticket.id] });
@@ -23,7 +26,7 @@ export function EscalateDialog({ ticket, open, onOpenChange }: { ticket: Ticket;
       onOpenChange(false);
       setNote("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to escalate ticket."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to escalate ticket.")),
   });
 
   return (

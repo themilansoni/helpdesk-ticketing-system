@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api } from "@/lib/api";
+import { notificationsDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,40 +12,42 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import type { AppNotification } from "@/types";
 import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export function NotificationBell() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: unreadCount } = useQuery({
-    queryKey: ["notifications", "unread-count"],
-    queryFn: () => api.get<{ count: number }>("/notifications/unread-count"),
+    queryKey: ["notifications", "unread-count", user?.id],
+    queryFn: () => notificationsDb.getUnreadCount(user!.id),
+    enabled: !!user,
     refetchInterval: 30_000,
   });
 
   const { data: notifications } = useQuery({
-    queryKey: ["notifications", "recent"],
-    queryFn: () => api.get<AppNotification[]>("/notifications"),
+    queryKey: ["notifications", "recent", user?.id],
+    queryFn: () => notificationsDb.listMyNotifications(user!.id),
+    enabled: !!user,
     refetchInterval: 30_000,
   });
 
   const markRead = useMutation({
-    mutationFn: (id: string) => api.post(`/notifications/${id}/read`),
+    mutationFn: (id: string) => notificationsDb.markNotificationRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
   const markAllRead = useMutation({
-    mutationFn: () => api.post("/notifications/read-all"),
+    mutationFn: () => notificationsDb.markAllNotificationsRead(user!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
-  const count = unreadCount?.count ?? 0;
+  const count = unreadCount ?? 0;
 
   return (
     <DropdownMenu>

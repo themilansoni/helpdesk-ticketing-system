@@ -1,4 +1,7 @@
-import type { RoleName, SlaHealth } from "@helpdesk/shared";
+import type { RoleName, SlaHealth, TicketStatusName } from "@helpdesk/shared";
+
+// Firestore document shapes, as consumed by the app (timestamps already
+// normalized to ISO strings by the data-access layer in src/lib/db).
 
 export interface UserSummary {
   id: string;
@@ -8,7 +11,7 @@ export interface UserSummary {
 }
 
 export interface CurrentUser {
-  id: string;
+  id: string; // Firebase Auth UID, also the Firestore doc id in `users`
   employeeId: string;
   firstName: string;
   lastName: string;
@@ -17,7 +20,7 @@ export interface CurrentUser {
   jobTitle: string | null;
   status: string;
   lastLoginAt: string | null;
-  role: { id: string; name: RoleName };
+  role: { name: RoleName };
   department: { id: string; name: string } | null;
   location: { id: string; name: string } | null;
   managerId: string | null;
@@ -37,28 +40,31 @@ export interface Location {
   country: string | null;
 }
 
-export interface Priority {
-  id: string;
-  name: string;
-  level: number;
-  colorHex: string;
-  slaPolicy?: SlaPolicy | null;
-}
-
 export interface SlaPolicy {
-  id: string;
-  priorityId: string;
   firstResponseMinutes: number;
   resolutionMinutes: number;
   businessHoursOnly: boolean;
 }
 
-export interface TicketStatus {
+export interface Priority {
   id: string;
   name: string;
+  level: number;
+  colorHex: string;
+  slaPolicy: SlaPolicy;
+}
+
+export interface TicketStatus {
+  name: TicketStatusName;
   order: number;
   isClosed: boolean;
   isDefault: boolean;
+}
+
+export interface TicketSubcategory {
+  id: string;
+  name: string;
+  categoryId: string;
 }
 
 export interface TicketCategory {
@@ -66,12 +72,6 @@ export interface TicketCategory {
   name: string;
   description: string | null;
   subcategories: TicketSubcategory[];
-}
-
-export interface TicketSubcategory {
-  id: string;
-  name: string;
-  categoryId: string;
 }
 
 export interface AssetType {
@@ -90,11 +90,10 @@ export interface Asset {
   warrantyExpiry: string | null;
   status: string;
   assignedUser: UserSummary | null;
-  department: Department | null;
-  location: Location | null;
+  department: { id: string; name: string } | null;
+  location: { id: string; name: string } | null;
   notes: string | null;
   createdAt: string;
-  tickets?: Array<{ id: string; ticketNumber: string; subject: string }>;
 }
 
 export interface SlaInfo {
@@ -111,12 +110,12 @@ export interface Ticket {
   subject: string;
   description: string;
   requester: UserSummary & { employeeId: string };
-  department: Department | null;
-  location: Location | null;
-  category: TicketCategory;
-  subcategory: TicketSubcategory | null;
-  priority: Priority;
-  status: TicketStatus;
+  department: { id: string; name: string } | null;
+  location: { id: string; name: string } | null;
+  category: { id: string; name: string };
+  subcategory: { id: string; name: string } | null;
+  priority: { id: string; name: string; level: number; colorHex: string };
+  status: TicketStatusName;
   assignedTechnician: UserSummary | null;
   asset: { id: string; assetTag: string; model: string | null } | null;
   preferredContactMethod: string;
@@ -130,6 +129,14 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   sla: SlaInfo;
+  attachments: TicketAttachmentMeta[];
+}
+
+export interface TicketAttachmentMeta {
+  fileName: string;
+  storagePath: string;
+  mimeType: string;
+  sizeBytes: number;
 }
 
 export interface TicketComment {
@@ -140,15 +147,7 @@ export interface TicketComment {
   body: string;
   isInternal: boolean;
   createdAt: string;
-  attachments: TicketAttachment[];
-}
-
-export interface TicketAttachment {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  createdAt: string;
+  attachments: TicketAttachmentMeta[];
 }
 
 export interface TicketHistoryEntry {
@@ -188,6 +187,7 @@ export interface KnowledgeArticle {
 
 export interface AppNotification {
   id: string;
+  userId: string;
   type: string;
   title: string;
   message: string;
@@ -206,7 +206,6 @@ export interface AuditLogEntry {
   entityId: string;
   previousValue: string | null;
   newValue: string | null;
-  ipAddress: string | null;
   createdAt: string;
 }
 

@@ -3,23 +3,29 @@ import { screen } from "@testing-library/react";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/lib/auth";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TicketDetailPage from "@/pages/tickets/ticket-detail-page";
-import { createTestQueryClient, mockApiFetch } from "./test-utils";
+import { createTestQueryClient } from "./test-utils";
+import { setMockUser } from "./mocks/auth-mock";
 
-const TICKET_FIXTURE = {
+vi.mock("@/lib/auth", () => import("./mocks/auth-mock"));
+// comment-thread.tsx imports @/lib/db/storage directly (a sub-path the
+// @/lib/db barrel mock below doesn't cover), which otherwise pulls in the
+// real Firebase app initialization from @/lib/firebase.
+vi.mock("@/lib/firebase", () => ({ auth: {}, db: {}, storage: {}, firebaseApp: {} }));
+
+const TICKET_FIXTURE = vi.hoisted(() => ({
   id: "t1",
   ticketNumber: "HD-2026-000007",
   subject: "Cannot access shared drive",
   description: "I lost access after switching teams.",
   requester: { id: "u1", firstName: "Emma", lastName: "Employee", email: "e@x.com", employeeId: "EMP-1" },
-  department: { id: "dep-1", name: "Sales", description: null },
-  location: { id: "loc-1", name: "HQ", address: null, city: null, country: null },
-  category: { id: "cat-1", name: "Access", description: null, subcategories: [] },
-  subcategory: { id: "sub-1", name: "Shared Drive", categoryId: "cat-1" },
+  department: { id: "dep-1", name: "Sales" },
+  location: { id: "loc-1", name: "HQ" },
+  category: { id: "cat-1", name: "Access" },
+  subcategory: { id: "sub-1", name: "Shared Drive" },
   priority: { id: "pri-1", name: "Medium", level: 2, colorHex: "#2563eb" },
-  status: { id: "status-open", name: "Open", order: 1, isClosed: false, isDefault: false },
+  status: "Open" as const,
   assignedTechnician: { id: "tech-1", firstName: "Tom", lastName: "Tech", email: "tom@x.com" },
   asset: null,
   preferredContactMethod: "email",
@@ -32,21 +38,28 @@ const TICKET_FIXTURE = {
   reopenedCount: 0,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  sla: { firstResponseHealth: "healthy", resolutionHealth: "healthy", resolutionPercentElapsed: 20, resolutionMsRemaining: 5000_000, overallHealth: "healthy" },
-};
+  attachments: [],
+  sla: { firstResponseHealth: "healthy" as const, resolutionHealth: "healthy" as const, resolutionPercentElapsed: 20, resolutionMsRemaining: 5000_000, overallHealth: "healthy" as const },
+}));
+
+vi.mock("@/lib/db", () => ({
+  ticketsDb: {
+    getTicketById: vi.fn().mockResolvedValue(TICKET_FIXTURE),
+    listTicketComments: vi.fn().mockResolvedValue([]),
+    listTicketHistory: vi.fn().mockResolvedValue([]),
+  },
+}));
 
 function renderTicketDetail() {
   const queryClient = createTestQueryClient();
   return render(
     <MemoryRouter initialEntries={["/tickets/t1"]}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Routes>
-              <Route path="/tickets/:id" element={<TicketDetailPage />} />
-            </Routes>
-          </TooltipProvider>
-        </AuthProvider>
+        <TooltipProvider>
+          <Routes>
+            <Route path="/tickets/:id" element={<TicketDetailPage />} />
+          </Routes>
+        </TooltipProvider>
       </QueryClientProvider>
     </MemoryRouter>
   );
@@ -54,14 +67,7 @@ function renderTicketDetail() {
 
 describe("TicketDetailPage", () => {
   it("renders ticket header, SLA panel, and sidebar details", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockApiFetch({
-        "GET tickets/t1/comments": [],
-        "GET tickets/t1/history": [],
-        "GET tickets/t1": TICKET_FIXTURE,
-      })
-    );
+    setMockUser(null);
 
     renderTicketDetail();
 
@@ -72,7 +78,7 @@ describe("TicketDetailPage", () => {
     expect(screen.getAllByText(/Tom Tech/).length).toBeGreaterThan(0);
     expect(screen.getByText("Sales")).toBeInTheDocument();
 
-    // Not logged in (no auth token) -> no technician action buttons should render.
+    // Not signed in -> no technician action buttons should render.
     expect(screen.queryByRole("button", { name: /assign/i })).not.toBeInTheDocument();
   });
 });

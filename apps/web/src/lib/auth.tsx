@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, tokenStorage } from "./api";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  type User as FirebaseUser,
+} from "firebase/auth";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { auth, db } from "./firebase";
+import { toIsoOrNull } from "./db/helpers";
 import type { CurrentUser } from "@/types";
 import type { Permission } from "@helpdesk/shared";
 import { hasPermission } from "@helpdesk/shared";
@@ -15,61 +23,82 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+async function loadProfile(uid: string): Promise<CurrentUser> {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) {
+    throw new Error("No profile found for this account. Contact an administrator.");
+  }
+  const data = snap.data();
+  if (data.status !== "active") {
+    throw new Error("This account has been disabled. Contact an administrator.");
+  }
+  return {
+    id: snap.id,
+    employeeId: data.employeeId,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    phone: data.phone ?? null,
+    jobTitle: data.jobTitle ?? null,
+    status: data.status,
+    lastLoginAt: toIsoOrNull(data.lastLoginAt),
+    role: { name: data.role },
+    department: data.departmentId ? { id: data.departmentId, name: data.departmentName } : null,
+    location: data.locationId ? { id: data.locationId, name: data.locationName } : null,
+    managerId: data.managerId ?? null,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadProfile = useCallback(async () => {
-    if (!tokenStorage.getAccessToken()) {
+  const applyFirebaseUser = useCallback(async (fbUser: FirebaseUser | null) => {
+    if (!fbUser) {
       setUser(null);
       setIsLoading(false);
       return;
     }
     try {
-      const profile = await api.get<CurrentUser>("/auth/me");
+      const profile = await loadProfile(fbUser.uid);
       setUser(profile);
-    } catch {
-      tokenStorage.clear();
+    } catch (err) {
+      await firebaseSignOut(auth).catch(() => {});
       setUser(null);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadProfile();
-    const handleUnauthorized = () => setUser(null);
-    window.addEventListener("helpdesk:unauthorized", handleUnauthorized);
-    return () => window.removeEventListener("helpdesk:unauthorized", handleUnauthorized);
-  }, [loadProfile]);
+    const unsubscribe = onAuthStateChanged(auth, applyFirebaseUser);
+    return unsubscribe;
+  }, [applyFirebaseUser]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const result = await api.post<{ accessToken: string; refreshToken: string; user: CurrentUser }>("/auth/login", {
-      email,
-      password,
-    });
-    tokenStorage.setTokens(result.accessToken, result.refreshToken);
-    setUser(result.user);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const profile = await loadProfile(credential.user.uid);
+    await updateDoc(doc(db, "users", credential.user.uid), { lastLoginAt: serverTimestamp() }).catch(() => {});
+    setUser(profile);
   }, []);
 
   const logout = useCallback(async () => {
-    const refreshToken = tokenStorage.getRefreshToken();
-    tokenStorage.clear();
+    await firebaseSignOut(auth);
     setUser(null);
-    if (refreshToken) {
-      try {
-        await api.post("/auth/logout", { refreshToken });
-      } catch {
-        // best-effort server-side revocation; local logout has already happened
-      }
-    }
   }, []);
 
   const can = useCallback((permission: Permission) => hasPermission(user?.role.name, permission), [user]);
 
+  const refreshProfile = useCallback(async () => {
+    if (!auth.currentUser) return;
+    const profile = await loadProfile(auth.currentUser.uid);
+    setUser(profile);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, logout, can, refreshProfile: loadProfile }),
-    [user, isLoading, login, logout, can, loadProfile]
+    () => ({ user, isLoading, login, logout, can, refreshProfile }),
+    [user, isLoading, login, logout, can, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

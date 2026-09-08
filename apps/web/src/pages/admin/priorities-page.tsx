@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { referenceDb } from "@/lib/db";
+import { getErrorMessage } from "@/lib/firebase-errors";
+import { usePriorities } from "@/hooks/use-reference-data";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +28,7 @@ function SlaEditor({ priority }: { priority: Priority }) {
 
   const save = useMutation({
     mutationFn: () =>
-      api.put(`/priorities/${priority.id}/sla-policy`, {
+      referenceDb.updateSlaPolicy(priority.id, {
         firstResponseMinutes: Number(firstResponse),
         resolutionMinutes: Number(resolution),
         businessHoursOnly: priority.slaPolicy?.businessHoursOnly ?? false,
@@ -36,7 +38,7 @@ function SlaEditor({ priority }: { priority: Priority }) {
       toast({ title: `${priority.name} SLA updated` });
       setEditing(false);
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to update SLA policy."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to update SLA policy.")),
   });
 
   return (
@@ -88,10 +90,7 @@ function SlaEditor({ priority }: { priority: Priority }) {
 }
 
 export default function PrioritiesPage() {
-  const { data: priorities, isLoading } = useQuery({
-    queryKey: ["priorities"],
-    queryFn: () => api.get<Priority[]>("/priorities"),
-  });
+  const { data: priorities, isLoading } = usePriorities();
 
   return (
     <div>

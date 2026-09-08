@@ -11,12 +11,17 @@ npm-debug.log*
 Thumbs.db
 coverage/
 .vite/
-packages/database/prisma/*.db
-packages/database/prisma/*.db-journal
-packages/database/prisma/migrations_sqlite/
-apps/api/uploads/
 *.tsbuildinfo
 .idea/
 .vscode/*
 !.vscode/extensions.json
 .claude/
+
+# Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+firebase/emulator-data/
+firebase/*serviceAccount*.json
+firebase/*service-account*.json

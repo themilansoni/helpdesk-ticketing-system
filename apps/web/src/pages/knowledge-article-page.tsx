@@ -2,13 +2,12 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ThumbsDown, ThumbsUp } from "lucide-react";
-import { api } from "@/lib/api";
+import { kbDb } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
-import type { KnowledgeArticle } from "@/types";
 
 export default function KnowledgeArticlePage() {
   const { idOrSlug } = useParams<{ idOrSlug: string }>();
@@ -17,12 +16,12 @@ export default function KnowledgeArticlePage() {
 
   const { data: article, isLoading } = useQuery({
     queryKey: ["kb-article", idOrSlug],
-    queryFn: () => api.get<KnowledgeArticle>(`/knowledge-base/${idOrSlug}`),
+    queryFn: () => kbDb.getArticleBySlugOrId(idOrSlug!, true),
     enabled: !!idOrSlug,
   });
 
   const vote = useMutation({
-    mutationFn: (helpful: boolean) => api.post(`/knowledge-base/${article?.id}/vote`, { helpful }),
+    mutationFn: (helpful: boolean) => kbDb.voteArticle(article!.id, helpful),
     onSuccess: (_data, helpful) => {
       setVoted(helpful ? "helpful" : "not_helpful");
       queryClient.invalidateQueries({ queryKey: ["kb-article", idOrSlug] });

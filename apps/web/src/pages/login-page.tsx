@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { ApiError } from "@/lib/api";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +37,7 @@ export default function LoginPage() {
       await login(email, password);
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to sign in. Please try again.");
+      setError(getErrorMessage(err, "Unable to sign in. Please try again."));
     } finally {
       setIsSubmitting(false);
     }

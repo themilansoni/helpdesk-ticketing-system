@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusCircle, Tags, Trash2 } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { referenceDb } from "@/lib/db";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -27,48 +28,48 @@ export default function CategoriesPage() {
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ["categories"],
-    queryFn: () => api.get<TicketCategory[]>("/categories"),
+    queryFn: () => referenceDb.listCategories(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["categories"] });
 
   const createCategory = useMutation({
-    mutationFn: () => api.post("/categories", { name }),
+    mutationFn: () => referenceDb.createCategory(name),
     onSuccess: () => {
       invalidate();
       toast({ title: "Category created" });
       setCreateOpen(false);
       setName("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to create category."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to create category.")),
   });
 
   const createSubcategory = useMutation({
-    mutationFn: () => api.post("/categories/subcategories", { name: subName, categoryId: subFor?.id }),
+    mutationFn: () => referenceDb.createSubcategory(subName, subFor!.id),
     onSuccess: () => {
       invalidate();
       toast({ title: "Subcategory created" });
       setSubFor(null);
       setSubName("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to create subcategory."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to create subcategory.")),
   });
 
   const removeCategory = useMutation({
-    mutationFn: (id: string) => api.delete(`/categories/${id}`),
+    mutationFn: (id: string) => referenceDb.deleteCategory(id),
     onSuccess: () => {
       invalidate();
       toast({ title: "Category deleted" });
       setDeleteCategory(null);
     },
     onError: (err) => {
-      toast({ title: "Unable to delete", description: err instanceof ApiError ? err.message : undefined });
+      toast({ title: "Unable to delete", description: getErrorMessage(err) });
       setDeleteCategory(null);
     },
   });
 
   const removeSubcategory = useMutation({
-    mutationFn: (id: string) => api.delete(`/categories/subcategories/${id}`),
+    mutationFn: (id: string) => referenceDb.deleteSubcategory(id),
     onSuccess: () => {
       invalidate();
       toast({ title: "Subcategory deleted" });

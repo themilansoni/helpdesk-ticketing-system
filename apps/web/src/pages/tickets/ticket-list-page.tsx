@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search, PlusCircle, Inbox } from "lucide-react";
-import { api } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
+import { TICKET_STATUS_NAMES } from "@helpdesk/shared";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
@@ -15,9 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/tickets/status-badge";
 import { PriorityBadge } from "@/components/tickets/priority-badge";
 import { SlaBadge } from "@/components/tickets/sla-indicator";
-import { useCategories, usePriorities, useStatuses, useDepartments } from "@/hooks/use-reference-data";
+import { useCategories, usePriorities, useDepartments } from "@/hooks/use-reference-data";
 import { formatDate, debounce } from "@/lib/utils";
-import type { PaginatedResult, Ticket } from "@/types";
 
 const PAGE_SIZE = 15;
 const ALL = "__all__";
@@ -30,29 +30,40 @@ export default function TicketListPage() {
 
   const { data: categories } = useCategories();
   const { data: priorities } = usePriorities();
-  const { data: statuses } = useStatuses();
   const { data: departments } = useDepartments();
 
   const filters = {
     search: params.get("search") ?? undefined,
-    statusId: params.get("statusId") ?? undefined,
+    status: params.get("status") ?? undefined,
     priorityId: params.get("priorityId") ?? undefined,
     categoryId: params.get("categoryId") ?? undefined,
     departmentId: params.get("departmentId") ?? undefined,
     assignee: params.get("assignee") ?? undefined,
     unassigned: params.get("unassigned") ?? undefined,
     sla: params.get("sla") ?? undefined,
-    sort: params.get("sort") ?? "newest",
+    sort: (params.get("sort") as "newest" | "oldest" | "priority" | "sla") ?? "newest",
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tickets", filters, page],
+    queryKey: ["tickets", filters, page, user?.id],
     queryFn: () =>
-      api.get<PaginatedResult<Ticket>>("/tickets", {
-        ...filters,
+      ticketsDb.listTickets({
+        requestingUserId: user!.id,
+        requestingUserRole: user!.role.name,
+        search: filters.search,
+        status: filters.status,
+        priorityId: filters.priorityId,
+        categoryId: filters.categoryId,
+        departmentId: filters.departmentId,
+        assignedTechnicianId: filters.assignee === "me" ? user!.id : undefined,
+        unassigned: filters.unassigned === "1",
+        mine: filters.assignee === "me",
+        sla: filters.sla as "healthy" | "at_risk" | "breached" | undefined,
+        sort: filters.sort,
         page,
         pageSize: PAGE_SIZE,
       }),
+    enabled: !!user,
   });
 
   const updateParam = (key: string, value: string | undefined) => {
@@ -103,12 +114,12 @@ export default function TicketListPage() {
           />
         </div>
 
-        <Select value={filters.statusId ?? ALL} onValueChange={(v) => updateParam("statusId", v)}>
+        <Select value={filters.status ?? ALL} onValueChange={(v) => updateParam("status", v)}>
           <SelectTrigger className="w-40" aria-label="Status"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All statuses</SelectItem>
-            {statuses?.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            {TICKET_STATUS_NAMES.map((s) => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -206,7 +217,7 @@ export default function TicketListPage() {
                     <TableCell className="text-sm">
                       {t.assignedTechnician ? `${t.assignedTechnician.firstName} ${t.assignedTechnician.lastName}` : "Unassigned"}
                     </TableCell>
-                    <TableCell><StatusBadge name={t.status.name} /></TableCell>
+                    <TableCell><StatusBadge name={t.status} /></TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(t.createdAt)}</TableCell>
                     <TableCell><SlaBadge sla={t.sla} /></TableCell>
                   </TableRow>

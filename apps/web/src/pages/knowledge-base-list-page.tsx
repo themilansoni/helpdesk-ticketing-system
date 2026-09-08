@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { BookOpen, Eye, PlusCircle, Search } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { kbDb, referenceDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
@@ -24,13 +25,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { debounce } from "@/lib/utils";
-import type { KnowledgeArticle, KnowledgeCategory, PaginatedResult } from "@/types";
 
 const ALL = "__all__";
 const PAGE_SIZE = 9;
 
 export default function KnowledgeBaseListPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const canManage = can("KNOWLEDGE_MANAGE");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -42,18 +42,20 @@ export default function KnowledgeBaseListPage() {
 
   const { data: categories } = useQuery({
     queryKey: ["kb-categories"],
-    queryFn: () => api.get<KnowledgeCategory[]>("/knowledge-base/categories"),
+    queryFn: () => referenceDb.listKnowledgeCategories(),
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["kb-articles", search, categoryId, page],
+    queryKey: ["kb-articles", search, categoryId, page, can("KNOWLEDGE_MANAGE")],
     queryFn: () =>
-      api.get<PaginatedResult<KnowledgeArticle>>("/knowledge-base", {
+      kbDb.listArticles({
         search: search || undefined,
         categoryId: categoryId === ALL ? undefined : categoryId,
+        includeDrafts: user?.role.name !== "Employee",
         page,
         pageSize: PAGE_SIZE,
       }),
+    enabled: !!user,
   });
 
   const debouncedSearch = debounce((v: string) => {
@@ -70,13 +72,17 @@ export default function KnowledgeBaseListPage() {
 
   const createArticle = useMutation({
     mutationFn: () =>
-      api.post("/knowledge-base", {
-        title,
-        content,
-        categoryId: newCategoryId,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-        status,
-      }),
+      kbDb.createArticle(
+        {
+          title,
+          content,
+          categoryId: newCategoryId,
+          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          status,
+        },
+        user!.id,
+        { firstName: user!.firstName, lastName: user!.lastName }
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kb-articles"] });
       toast({ title: "Article created" });
@@ -87,7 +93,7 @@ export default function KnowledgeBaseListPage() {
       setTags("");
       setStatus("draft");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to create article."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to create article.")),
   });
 
   return (
@@ -110,7 +116,7 @@ export default function KnowledgeBaseListPage() {
           <Input placeholder="Search articles..." className="pl-8" onChange={(e) => debouncedSearch(e.target.value)} />
         </div>
         <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectTrigger className="w-48" aria-label="Category"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All categories</SelectItem>
             {categories?.map((c) => (
@@ -172,7 +178,7 @@ export default function KnowledgeBaseListPage() {
               <div className="space-y-1.5">
                 <Label>Category</Label>
                 <Select value={newCategoryId} onValueChange={setNewCategoryId}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectTrigger aria-label="Category"><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
                     {categories?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -183,7 +189,7 @@ export default function KnowledgeBaseListPage() {
               <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select value={status} onValueChange={(v) => setStatus(v as "draft" | "published")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Status"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="published">Published</SelectItem>

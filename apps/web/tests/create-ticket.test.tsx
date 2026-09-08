@@ -2,26 +2,37 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CreateTicketPage from "@/pages/tickets/create-ticket-page";
-import { renderWithProviders, mockApiFetch } from "./test-utils";
+import { renderWithProviders, TEST_EMPLOYEE } from "./test-utils";
+import { setMockUser } from "./mocks/auth-mock";
 
-// Radix Select depends on pointerdown-based opening that jsdom cannot
-// simulate reliably; see tests/mocks/select-mock.tsx for why these tests
-// swap it for a plain native <select> instead of exercising Radix itself.
+// See tests/mocks/select-mock.tsx - Radix Select's pointerdown-based
+// opening isn't simulable in jsdom, so these tests use a plain <select>.
 vi.mock("@/components/ui/select", () => import("./mocks/select-mock"));
+vi.mock("@/lib/auth", () => import("./mocks/auth-mock"));
+
+const mockCreateTicket = vi.fn();
+
+vi.mock("@/lib/db", () => ({
+  referenceDb: {
+    listCategories: vi.fn().mockResolvedValue([
+      { id: "cat-1", name: "Hardware", description: null, subcategories: [{ id: "sub-1", name: "Laptop", categoryId: "cat-1" }] },
+    ]),
+    listPriorities: vi.fn().mockResolvedValue([{ id: "pri-1", name: "Medium", level: 2, colorHex: "#2563eb", slaPolicy: { firstResponseMinutes: 240, resolutionMinutes: 2880, businessHoursOnly: false } }]),
+    listDepartments: vi.fn().mockResolvedValue([{ id: "dep-1", name: "IT", description: null }]),
+    listLocations: vi.fn().mockResolvedValue([{ id: "loc-1", name: "HQ", address: null, city: null, country: null }]),
+  },
+  assetsDb: {
+    listAssets: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 50 }),
+  },
+  ticketsDb: {
+    createTicket: (...args: unknown[]) => mockCreateTicket(...args),
+  },
+}));
 
 describe("CreateTicketPage", () => {
   it("submits the form and creates a ticket with an auto-generated number", async () => {
-    const fetchMock = mockApiFetch({
-      "GET categories": [
-        { id: "cat-1", name: "Hardware", description: null, subcategories: [{ id: "sub-1", name: "Laptop", categoryId: "cat-1" }] },
-      ],
-      "GET priorities": [{ id: "pri-1", name: "Medium", level: 2, colorHex: "#2563eb" }],
-      "GET departments": [{ id: "dep-1", name: "IT", description: null }],
-      "GET locations": [{ id: "loc-1", name: "HQ", address: null, city: null, country: null }],
-      "GET assets": { data: [], total: 0, page: 1, pageSize: 50 },
-      "POST tickets": { id: "ticket-1", ticketNumber: "HD-2026-000042" },
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    setMockUser(TEST_EMPLOYEE);
+    mockCreateTicket.mockResolvedValueOnce({ id: "ticket-1", ticketNumber: "HD-2026-000042" });
 
     renderWithProviders(<CreateTicketPage />, { route: "/tickets/new" });
 
@@ -36,22 +47,16 @@ describe("CreateTicketPage", () => {
     await user.click(screen.getByRole("button", { name: /submit ticket/i }));
 
     await waitFor(() => {
-      const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
-      expect(postCall).toBeTruthy();
+      expect(mockCreateTicket).toHaveBeenCalledWith(
+        expect.objectContaining({ subject: "My monitor stopped working", categoryId: "cat-1", priorityId: "pri-1" }),
+        TEST_EMPLOYEE,
+        []
+      );
     });
   });
 
   it("shows a validation error when submitting without a category or priority", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockApiFetch({
-        "GET categories": [],
-        "GET priorities": [],
-        "GET departments": [],
-        "GET locations": [],
-        "GET assets": { data: [], total: 0, page: 1, pageSize: 50 },
-      })
-    );
+    setMockUser(TEST_EMPLOYEE);
 
     renderWithProviders(<CreateTicketPage />, { route: "/tickets/new" });
     const user = userEvent.setup();

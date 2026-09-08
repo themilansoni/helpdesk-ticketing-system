@@ -8,8 +8,6 @@ configurable SLAs, and administrators manage users, departments, assets,
 the knowledge base, and audit history.
 
 **Live Demo:** https://themilansoni.github.io/helpdesk-ticketing-system/
-(frontend only - see [Deployment Status](#deployment-status), the API
-isn't deployed yet so login won't complete until it is)
 **GitHub Repository:** https://github.com/themilansoni/helpdesk-ticketing-system
 
 ---
@@ -46,143 +44,123 @@ HelpDesk Pro covers the full lifecycle of an IT support request:
 
 ## 3. Architecture
 
+HelpDesk Pro is a **serverless single-page app**: there is no backend
+server to host. The React frontend talks directly to **Firebase**
+(Authentication, Firestore, and Storage) from the browser, and
+**Firestore/Storage Security Rules are the entire access-control layer** -
+there are no Cloud Functions in this build (a deliberate choice to stay on
+Firebase's free Spark plan; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+for the trade-offs this implies).
+
 ```
 helpdesk-ticketing-system/
 ├── apps/
-│   ├── web/          React + TypeScript + Vite SPA
-│   └── api/           Node + TypeScript + Express REST API
+│   └── web/                React + TypeScript + Vite SPA
+│       └── src/lib/db/       Firestore/Storage data-access layer (one
+│                              module per domain: tickets, users, assets...)
 ├── packages/
-│   ├── database/       Prisma schema, migrations, seed script
-│   ├── shared/         Shared types, zod validation, RBAC matrix, SLA math
-│   └── config/         Shared lint config
-├── docs/                API reference and deployment guide
-├── .github/workflows/    CI (typecheck/lint/test/build) and CD (GitHub Pages)
-└── docker-compose.yml    Postgres + API + web, for local full-stack runs
+│   ├── shared/              Shared types, zod validation, RBAC matrix,
+│   │                        SLA math - used by both the app and the
+│   │                        Firestore rules' logic (kept in sync by hand)
+│   └── config/               Shared lint config
+├── firebase/
+│   ├── firestore.rules        Access control - the real security boundary
+│   ├── storage.rules
+│   ├── firestore.indexes.json
+│   ├── seed.ts                 One-time demo-data seeding (Admin SDK, run
+│   │                            locally with your own service account key)
+│   └── seed-data.ts
+├── docs/                       Data model reference and deployment guide
+└── .github/workflows/          CI (typecheck/lint/test/build + rules
+                                 validation) and CD (GitHub Pages)
 ```
-
-The frontend never talks to the database directly - it only calls the REST
-API, which is the single source of truth for business logic (ticket
-workflow, SLA calculation, RBAC, audit logging).
 
 ## 4. Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Radix UI primitives, TanStack Query, React Router, Recharts |
-| Backend | Node.js, TypeScript, Express |
-| Database | PostgreSQL via Prisma ORM |
-| Auth | JWT access + refresh tokens, bcrypt password hashing, RBAC |
-| File storage | Pluggable driver: local disk (dev) or S3-compatible (production) |
-| Email | Pluggable provider: mock (dev/CI), SMTP, SendGrid, Amazon SES, Microsoft Graph |
-| Testing | Vitest + Supertest (API), Vitest + Testing Library (web) |
-| CI/CD | GitHub Actions (typecheck/lint/test/build on PR, GitHub Pages deploy on merge) |
+| Backend | **Firebase** - Authentication, Firestore (database), Storage (files). No server to deploy. |
+| Auth | Firebase Authentication (email/password), role stored on each user's Firestore profile |
+| Security | Firestore Security Rules + Storage Security Rules (see `firebase/firestore.rules`) |
+| Testing | Vitest + Testing Library (component/unit tests, Firebase mocked) |
+| CI/CD | GitHub Actions (typecheck/lint/test/build + rules validation on PR, GitHub Pages deploy on merge) |
 
-## 5. Database
+## 5. Data Model
 
-PostgreSQL, modeled with Prisma (`packages/database/prisma/schema.prisma`):
-23 tables covering users/roles/departments/locations, the ticket taxonomy
-(categories, subcategories, priorities, statuses, SLA policies), tickets
-and their comments/attachments/history/assignments, assets, the knowledge
-base, notifications, audit logs, and system settings. Fixed-choice fields
-(role, status, etc.) are validated as TypeScript union types in
-`packages/shared` rather than native DB enums, since several of them
-(priorities, statuses, categories) are also admin-editable data.
-
-A committed initial migration lives at
-`packages/database/prisma/migrations/20260101000000_init/` and applies
-cleanly to a fresh PostgreSQL database via `prisma migrate deploy`.
-
-### Local development without Docker/PostgreSQL
-
-The schema avoids Postgres-only features (native enums, scalar arrays,
-`@db.*` native type attributes), so the exact same schema also works
-against SQLite - useful for a quick local run with no database server to
-install. Toggle the datasource with:
-
-```bash
-npm run db:use:sqlite       # for local dev without Docker/Postgres
-npm run db:use:postgresql   # switch back before committing / for production
-```
-
-This only changes `packages/database/prisma/schema.prisma`'s `provider`
-line - do not commit it set to `sqlite`.
+See [docs/DATA-MODEL.md](docs/DATA-MODEL.md) for the full Firestore
+collection reference. In short: documents are denormalized (a ticket
+stores the requester's name, category name, etc. directly) since
+Firestore has no joins, and the fixed-choice fields that used to be
+lookup tables in a relational schema (roles, ticket statuses) are now
+TypeScript union types in `packages/shared`, validated both in the UI and
+in `firestore.rules`.
 
 ## 6. Environment Variables
 
-Copy `.env.example` to `.env` (and to `apps/api/.env` / `packages/database/.env`
-as needed - see below) and fill in real values. Full list and comments are
-in [`.env.example`](.env.example): database connection, JWT secrets, file
-storage driver, and email provider settings.
-
-**Never commit a real `.env` file.**
+The only configuration is your Firebase project's web app config - see
+[apps/web/.env.example](apps/web/.env.example). These values identify
+*which* Firebase project to talk to; they are not secrets (Firebase's own
+docs are explicit about this) - real access control is `firestore.rules`
+and `storage.rules`, not hiding this config.
 
 ## 7. Local Development
 
-Prerequisites: Node.js 20+, npm 10+. PostgreSQL only if you're not using
-the SQLite fallback below.
+Prerequisites: Node.js 20+, npm 10+, and a Firebase project (see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact setup steps if you
+don't have one yet).
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/themilansoni/helpdesk-ticketing-system.git
 cd helpdesk-ticketing-system
 npm install
+cp apps/web/.env.example apps/web/.env.local   # fill in your Firebase config
+npm run dev
 ```
 
-**Option A - fastest, no database server required (SQLite):**
+Then open http://localhost:5173. Sign in with one of the
+[demo accounts](#demo-accounts) once you've run the seed script (below),
+or create your first Administrator manually in the Firebase console
+(Authentication -> Add user, then create a matching document at
+`users/<that user's UID>` in Firestore with `role: "Administrator"` and
+`status: "active"`).
+
+### Seeding demo data
 
 ```bash
-npm run db:use:sqlite
-cp packages/database/.env.example packages/database/.env    # DATABASE_URL="file:./dev.db"
-cp apps/api/.env.example apps/api/.env                       # DATABASE_URL="file:./dev.db"
-npm run db:generate --workspace=packages/database
-npx prisma db push --schema=packages/database/prisma/schema.prisma
-npm run db:seed --workspace=packages/database
-npm run dev:api    # http://localhost:4000
-npm run dev:web    # http://localhost:5173 (separate terminal)
+# Firebase console -> Project settings -> Service accounts -> Generate new private key
+npm run seed:firebase -- /path/to/serviceAccountKey.json
 ```
 
-**Option B - PostgreSQL (matches production):**
-
-```bash
-# provider stays "postgresql" (the default in the repo)
-# set DATABASE_URL in packages/database/.env and apps/api/.env to your Postgres instance
-npm run db:generate --workspace=packages/database
-npm run db:migrate --workspace=packages/database   # applies migrations, prompts for a name if schema changed
-npm run db:seed --workspace=packages/database
-npm run dev:api
-npm run dev:web
-```
-
-Then open http://localhost:5173 and sign in with one of the
-[demo accounts](#demo-accounts).
+Creates 22 demo users (including the 4 accounts below), 10 assets, 15
+knowledge base articles, and 30 tickets spanning every status/priority
+combination (with comments, history, notifications, and audit log
+entries) so the dashboard is populated immediately.
 
 ### Common commands
 
 ```bash
-npm run build          # build all workspaces
-npm run test            # run backend + frontend test suites
-npm run typecheck       # typecheck all workspaces
-npm run lint             # lint all workspaces
-npm run db:studio        # Prisma Studio (visual DB browser)
+npm run build       # build the app
+npm run test         # run the test suite
+npm run typecheck    # typecheck
+npm run lint          # lint
 ```
 
-## 8. Docker Setup
+## 8. Deploying the Firestore/Storage Security Rules
+
+The rules in `firebase/` are the actual access-control layer and must be
+deployed to your Firebase project before the app is usable:
 
 ```bash
-docker compose up --build
-```
-
-Starts PostgreSQL, the API (`:4000`), and the web app behind nginx
-(`:5173`). After containers are healthy, run migrations and seed once:
-
-```bash
-docker compose exec api npm run db:migrate:deploy --workspace=packages/database
-docker compose exec api npm run db:seed --workspace=packages/database
+npx firebase-tools login
+npx firebase-tools use --add   # pick your project, alias it "default"
+npm run firebase:deploy:rules
 ```
 
 ## 9. Demo Credentials
 
-Seeded by `npm run db:seed --workspace=packages/database`. **Change these
-before using this in anything resembling production.**
+Seeded by `npm run seed:firebase`. **Change these before using this in
+anything resembling production.**
 
 | Role | Email | Password |
 |---|---|---|
@@ -191,56 +169,59 @@ before using this in anything resembling production.**
 | Manager | `manager@helpdesk.local` | `Passw0rd!123` |
 | Employee | `employee@helpdesk.local` | `Passw0rd!123` |
 
-Demo data also includes 4 named technicians, 15 more employees, 10 assets,
-15 knowledge base articles, and 30 tickets spanning every status/priority
-combination (with comments, history, notifications, and audit log entries)
-so the dashboard is populated immediately after installation.
-
 ## 10. Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full step-by-step
 instructions. Summary:
 
 - **Frontend**: GitHub Pages, automated via `.github/workflows/deploy.yml`
-  on every push to `main`. One-time setup: enable Pages with source
-  "GitHub Actions" in repo Settings.
-- **Backend**: deploy `apps/api` (Dockerfile included) to Render, Railway,
-  Fly.io, or any Node/Docker host, with a PostgreSQL database. Point the
-  frontend at it via the `VITE_API_BASE_URL` repository variable.
-- **Database**: any managed PostgreSQL (the host's own, or Neon/Supabase).
+  on every push to `main`, using your Firebase config from repository
+  Variables (Settings -> Secrets and variables -> Actions -> Variables).
+- **Backend**: nothing to deploy - Firebase Authentication/Firestore/
+  Storage are managed services. You only deploy the *rules*
+  (`npm run firebase:deploy:rules`).
+- **Database**: Firestore, provisioned as part of Firebase project setup.
 
-## 11. API Documentation
+## 11. Data Model / API Reference
 
-Full endpoint reference: [docs/API.md](docs/API.md).
+[docs/DATA-MODEL.md](docs/DATA-MODEL.md) documents every Firestore
+collection and the client-side functions in `apps/web/src/lib/db/` that
+read/write them (the closest equivalent to a REST API reference for a
+backend-as-a-service app).
 
 ## 12. Testing
 
 ```bash
-npm run test --workspace=apps/api   # auth, ticket lifecycle/RBAC, SLA calculation
-npm run test --workspace=apps/web   # login, ticket creation, filtering, detail, role-based nav
+npm run test
 ```
 
-The API test suite runs against SQLite locally (isolated `test.db`, never
-the seeded `dev.db`) and against a real PostgreSQL service container in CI
-(`.github/workflows/ci.yml`), so both the portable schema and the
-production-matching database are exercised.
+Covers login, ticket creation, ticket filtering, ticket detail rendering,
+and role-based navigation. The Firebase SDK is mocked at the
+`apps/web/src/lib/db` and `apps/web/src/lib/auth` module boundaries, so
+tests exercise real page/component logic without needing a live project
+or the emulator suite.
 
 ## 13. Security Notes
 
-- Passwords hashed with bcrypt; JWT access tokens (15 min) + rotating
-  refresh tokens (7 days, revocable, hashed at rest).
-- All mutating endpoints enforce RBAC server-side (`packages/shared`'s
-  permission matrix is the single source of truth for both API middleware
-  and frontend nav/UI gating).
-- Input validated with zod on every write endpoint.
-- File uploads: MIME-type allowlist, size limits, memory-buffered (never
-  written to disk with a client-controlled name).
-- `helmet` security headers, CORS restricted to the configured origin,
-  request body size limits.
-- Known accepted risk: `express@4` pulls in a transitive `qs` advisory
-  (moderate, DoS via crafted query strings) with no non-breaking fix
-  available; mitigated by the 1MB body size limit and zod validation on
-  every route. Tracked as a future improvement (Express 5 migration).
+- Firebase Authentication handles password hashing/storage - HelpDesk Pro
+  never sees or stores a password.
+- **`firestore.rules` and `storage.rules` are the entire authorization
+  layer** (no server exists to double-check them) - they mirror the same
+  RBAC matrix in `packages/shared/src/permissions.ts` that gates the UI,
+  so a client bypassing the UI still can't bypass access control.
+- Ticket status transitions are validated both in the UI
+  (`STATUS_TRANSITIONS` in `packages/shared`) and would ideally also be
+  enforced in rules; the current rules gate *who* can update a ticket
+  (staff only) but not the specific transition graph - a known
+  simplification of the "no Cloud Functions" trade-off, noted in Future
+  Improvements below.
+- Every Storage upload is size- and MIME-type-restricted in
+  `storage.rules`, matching the client-side check.
+- Notification documents can be created by any authenticated user
+  targeting any recipient (there's no server to broker this without Cloud
+  Functions) - a user could spam another user's notification feed, but
+  can never read another user's notifications, and every other write
+  remains properly scoped. Documented, deliberate trade-off.
 
 ## 14. Accessibility
 
@@ -251,26 +232,30 @@ badges.
 
 ## 15. Future Improvements
 
-- Real-time updates (WebSocket/SSE) instead of polling for notifications
-- Business-hours-aware SLA calculation (the `businessHoursOnly` flag exists
-  on `SlaPolicy` but resolution math is currently wall-clock)
-- Saved/shareable ticket filter views
-- Bulk ticket actions (multi-select assign/close)
-- Express 5 migration to close the `qs` advisory noted above
-- E2E browser tests (Playwright) alongside the existing unit/integration suites
+- Add Cloud Functions (upgrading to the Blaze plan) for the handful of
+  operations that are safest server-side: enforcing the exact ticket
+  status transition graph, and setting Firebase Auth custom claims for
+  role instead of trusting the Firestore profile document read in rules.
+- Real-time updates (Firestore `onSnapshot` listeners) instead of the
+  current polling/refetch-on-mutation pattern.
+- Business-hours-aware SLA calculation (the `businessHoursOnly` flag
+  exists on each priority's SLA policy but resolution math is currently
+  wall-clock).
+- Saved/shareable ticket filter views; bulk ticket actions.
+- Firestore full-text search (e.g. via a third-party extension) instead of
+  the current client-side filter-after-fetch approach.
+- E2E browser tests (Playwright) against the Firebase Emulator Suite.
 
 ## Deployment Status
 
 - Frontend: **LIVE** - https://themilansoni.github.io/helpdesk-ticketing-system/
-  (redeploys automatically on every push to `main`; API calls will fail
-  until `VITE_API_BASE_URL` is set per [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
-- Backend: **NOT LIVE** - deployment-ready (Dockerfile + full env config),
-  but not deployed since no hosting credentials were available in this
-  environment. Follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) to deploy it.
-- Database: **NOT LIVE** - schema and migrations are production-ready;
-  provision PostgreSQL on your chosen host as part of the backend deploy.
+  (redeploys automatically on every push to `main`)
+- Backend: **N/A** - Firebase is a managed service, nothing to deploy
+  beyond the security rules (`npm run firebase:deploy:rules`)
+- Database: depends on your Firebase project being set up and the rules
+  deployed - see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - CI/CD: **CONFIGURED** - `.github/workflows/ci.yml` (typecheck, lint,
-  test against real PostgreSQL, build) and `.github/workflows/deploy.yml`
+  test, build, rules validation) and `.github/workflows/deploy.yml`
   (GitHub Pages) both run automatically once pushed.
 
 ## License

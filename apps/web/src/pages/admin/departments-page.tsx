@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, PlusCircle, Trash2 } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { referenceDb } from "@/lib/db";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -24,11 +25,11 @@ export default function DepartmentsPage() {
 
   const { data: departments, isLoading } = useQuery({
     queryKey: ["departments"],
-    queryFn: () => api.get<Department[]>("/departments"),
+    queryFn: () => referenceDb.listDepartments(),
   });
 
   const create = useMutation({
-    mutationFn: () => api.post("/departments", { name, description: description || undefined }),
+    mutationFn: () => referenceDb.createDepartment({ name, description: description || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       toast({ title: "Department created" });
@@ -36,18 +37,18 @@ export default function DepartmentsPage() {
       setName("");
       setDescription("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to create department."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to create department.")),
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`/departments/${id}`),
+    mutationFn: (id: string) => referenceDb.deleteDepartment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       toast({ title: "Department deleted" });
       setDeleteTarget(null);
     },
     onError: (err) => {
-      toast({ title: "Unable to delete", description: err instanceof ApiError ? err.message : undefined });
+      toast({ title: "Unable to delete", description: getErrorMessage(err) });
       setDeleteTarget(null);
     },
   });

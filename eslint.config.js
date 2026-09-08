@@ -11,7 +11,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["apps/api/src/**/*.ts", "apps/api/tests/**/*.ts", "packages/*/src/**/*.ts"],
+    files: ["packages/*/src/**/*.ts", "firebase/**/*.ts"],
     languageOptions: {
       globals: globals.node,
     },

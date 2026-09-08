@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
-import type { TicketHistoryEntry } from "@/types";
 
 const ACTION_LABELS: Record<string, string> = {
   created: "created the ticket",
@@ -20,7 +19,7 @@ const ACTION_LABELS: Record<string, string> = {
 export function HistoryTimeline({ ticketId }: { ticketId: string }) {
   const { data: history, isLoading } = useQuery({
     queryKey: ["ticket-history", ticketId],
-    queryFn: () => api.get<TicketHistoryEntry[]>(`/tickets/${ticketId}/history`),
+    queryFn: () => ticketsDb.listTicketHistory(ticketId),
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading history...</p>;

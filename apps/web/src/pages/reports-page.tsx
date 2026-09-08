@@ -13,33 +13,33 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { api, API_BASE_URL, tokenStorage } from "@/lib/api";
+import { reportsDb } from "@/lib/db";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatPercent } from "@/lib/format";
 
-async function downloadCsv(type: string) {
-  const token = tokenStorage.getAccessToken();
-  const res = await fetch(`${API_BASE_URL}/reports/export.csv?type=${type}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) return;
-  const blob = await res.blob();
+function downloadCsv(rows: Record<string, unknown>[], filename: string) {
+  const csv = reportsDb.toCsv(rows);
+  const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${type}-report.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 }
 
-function ExportButton({ type }: { type: string }) {
+function ExportButton({ type, fetchRows }: { type: string; fetchRows: () => Promise<Record<string, unknown>[]> }) {
   return (
-    <Button variant="outline" size="sm" onClick={() => downloadCsv(type)}>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={async () => downloadCsv(await fetchRows(), `${type}-report.csv`)}
+    >
       <Download className="h-3.5 w-3.5" /> Export CSV
     </Button>
   );
@@ -48,27 +48,27 @@ function ExportButton({ type }: { type: string }) {
 export default function ReportsPage() {
   const { data: compliance } = useQuery({
     queryKey: ["reports", "sla-compliance"],
-    queryFn: () => api.get<{ compliant: number; breached: number; total: number; complianceRate: number }>("/reports/sla-compliance"),
+    queryFn: () => reportsDb.getSlaCompliance(),
   });
 
   const { data: aging } = useQuery({
     queryKey: ["reports", "aging"],
-    queryFn: () => api.get<Array<{ ticketNumber: string; subject: string; requester: string; status: string; priority: string; ageDays: number }>>("/reports/aging"),
+    queryFn: () => reportsDb.getAgingReport(),
   });
 
   const { data: monthlyVolume } = useQuery({
     queryKey: ["reports", "monthly-volume"],
-    queryFn: () => api.get<Array<{ month: string; count: number }>>("/reports/monthly-volume"),
+    queryFn: () => reportsDb.getMonthlyVolume(),
   });
 
   const { data: byDepartment } = useQuery({
     queryKey: ["reports", "by-department"],
-    queryFn: () => api.get<Array<{ name: string; count: number }>>("/reports/tickets-by-department"),
+    queryFn: () => reportsDb.getTicketsByDepartment(),
   });
 
   const { data: workload } = useQuery({
     queryKey: ["reports", "workload"],
-    queryFn: () => api.get<Array<{ name: string; open: number; total: number }>>("/reports/technician-workload"),
+    queryFn: () => reportsDb.getTechnicianWorkload(),
   });
 
   const complianceData = compliance
@@ -143,7 +143,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Open Tickets Aging</CardTitle>
-            <ExportButton type="aging" />
+            <ExportButton type="aging" fetchRows={() => reportsDb.getAgingReport()} />
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -172,7 +172,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Technician Workload</CardTitle>
-            <ExportButton type="technician-workload" />
+            <ExportButton type="technician-workload" fetchRows={() => reportsDb.getTechnicianWorkload()} />
           </CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -191,9 +191,9 @@ export default function ReportsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <ExportButton type="tickets-by-priority" />
-        <ExportButton type="tickets-by-category" />
-        <ExportButton type="tickets-by-department" />
+        <ExportButton type="tickets-by-priority" fetchRows={() => reportsDb.getTicketsByPriority()} />
+        <ExportButton type="tickets-by-category" fetchRows={() => reportsDb.getTicketsByCategory()} />
+        <ExportButton type="tickets-by-department" fetchRows={() => reportsDb.getTicketsByDepartment()} />
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { useTechnicians } from "@/hooks/use-reference-data";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import type { Ticket } from "@/types";
 
 export function AssignDialog({ ticket, open, onOpenChange }: { ticket: Ticket; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { user } = useAuth();
   const { data: technicians } = useTechnicians();
   const [technicianId, setTechnicianId] = useState(ticket.assignedTechnician?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -16,14 +19,14 @@ export function AssignDialog({ ticket, open, onOpenChange }: { ticket: Ticket; o
   const { toast } = useToast();
 
   const assign = useMutation({
-    mutationFn: () => api.post(`/tickets/${ticket.id}/assign`, { technicianId }),
+    mutationFn: () => ticketsDb.assignTicket(ticket.id, technicianId, user!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", ticket.id] });
       queryClient.invalidateQueries({ queryKey: ["ticket-history", ticket.id] });
       toast({ title: "Ticket assigned" });
       onOpenChange(false);
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to assign ticket."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to assign ticket.")),
   });
 
   return (
@@ -33,7 +36,7 @@ export function AssignDialog({ ticket, open, onOpenChange }: { ticket: Ticket; o
           <DialogTitle>Assign Ticket</DialogTitle>
         </DialogHeader>
         <Select value={technicianId} onValueChange={setTechnicianId}>
-          <SelectTrigger><SelectValue placeholder="Select a technician" /></SelectTrigger>
+          <SelectTrigger aria-label="Technician"><SelectValue placeholder="Select a technician" /></SelectTrigger>
           <SelectContent>
             {technicians?.map((t) => (
               <SelectItem key={t.id} value={t.id}>

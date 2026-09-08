@@ -1,42 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import type { Department, Location, Priority, TicketCategory, TicketStatus, AssetType, Asset, PaginatedResult } from "@/types";
+import { referenceDb, assetsDb } from "@/lib/db";
 
 export function useDepartments() {
-  return useQuery({ queryKey: ["departments"], queryFn: () => api.get<Department[]>("/departments") });
+  return useQuery({ queryKey: ["departments"], queryFn: () => referenceDb.listDepartments() });
 }
 
 export function useLocations() {
-  return useQuery({ queryKey: ["locations"], queryFn: () => api.get<Location[]>("/locations") });
+  return useQuery({ queryKey: ["locations"], queryFn: () => referenceDb.listLocations() });
 }
 
 export function useCategories() {
-  return useQuery({ queryKey: ["categories"], queryFn: () => api.get<TicketCategory[]>("/categories") });
+  return useQuery({ queryKey: ["categories"], queryFn: () => referenceDb.listCategories() });
 }
 
 export function usePriorities() {
-  return useQuery({ queryKey: ["priorities"], queryFn: () => api.get<Priority[]>("/priorities") });
-}
-
-export function useStatuses() {
-  return useQuery({ queryKey: ["statuses"], queryFn: () => api.get<TicketStatus[]>("/statuses") });
+  return useQuery({ queryKey: ["priorities"], queryFn: () => referenceDb.listPriorities() });
 }
 
 export function useAssetTypes() {
-  return useQuery({ queryKey: ["asset-types"], queryFn: () => api.get<AssetType[]>("/assets/types") });
+  return useQuery({ queryKey: ["asset-types"], queryFn: () => referenceDb.listAssetTypes() });
 }
 
 export function useTechnicians() {
-  return useQuery({
-    queryKey: ["technicians"],
-    queryFn: () => api.get<Array<{ id: string; firstName: string; lastName: string; email: string; role: { name: string } }>>("/users/technicians"),
-  });
+  return useQuery({ queryKey: ["technicians"], queryFn: () => referenceDb.listTechnicians() });
 }
 
 export function useMyAssets(userId?: string) {
   return useQuery({
     queryKey: ["assets", "mine", userId],
-    queryFn: () => api.get<PaginatedResult<Asset>>("/assets", { assignedUserId: userId, pageSize: 50 }),
+    queryFn: () => assetsDb.listAssets({ assignedUserId: userId, page: 1, pageSize: 50 }),
     enabled: !!userId,
   });
 }

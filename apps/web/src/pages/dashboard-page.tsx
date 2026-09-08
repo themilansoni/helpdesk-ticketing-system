@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { Ticket, Clock, AlertOctagon, UserX, CheckCircle2, PlusCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
+import { reportsDb, ticketsDb } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/common/page-header";
@@ -27,7 +27,6 @@ import { PriorityBadge } from "@/components/tickets/priority-badge";
 import { SlaBadge } from "@/components/tickets/sla-indicator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
-import type { PaginatedResult, Ticket as TicketType } from "@/types";
 
 const CHART_COLORS = ["#4f46e5", "#0ea5e9", "#8b5cf6", "#f59e0b", "#10b981", "#6b7280", "#ef4444"];
 
@@ -53,59 +52,62 @@ export default function DashboardPage() {
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["reports", "summary"],
-    queryFn: () => api.get("/reports/summary"),
+    queryFn: () => reportsDb.getDashboardSummary(),
     enabled: canViewReports,
-  }) as { data?: Record<string, number>; isLoading: boolean };
+  });
 
   const { data: byPriority } = useQuery({
     queryKey: ["reports", "by-priority"],
-    queryFn: () => api.get<Array<{ name: string; count: number; color: string }>>("/reports/tickets-by-priority"),
+    queryFn: () => reportsDb.getTicketsByPriority(),
     enabled: canViewReports,
   });
 
   const { data: byCategory } = useQuery({
     queryKey: ["reports", "by-category"],
-    queryFn: () => api.get<Array<{ name: string; count: number }>>("/reports/tickets-by-category"),
+    queryFn: () => reportsDb.getTicketsByCategory(),
     enabled: canViewReports,
   });
 
   const { data: overTime } = useQuery({
     queryKey: ["reports", "over-time"],
-    queryFn: () => api.get<Array<{ date: string; count: number }>>("/reports/tickets-over-time", { days: 21 }),
+    queryFn: () => reportsDb.getTicketsOverTime(21),
     enabled: canViewReports,
   });
 
   const { data: resolutionTrend } = useQuery({
     queryKey: ["reports", "resolution-trend"],
-    queryFn: () => api.get<Array<{ date: string; avgHours: number }>>("/reports/resolution-time-trend", { days: 30 }),
+    queryFn: () => reportsDb.getResolutionTimeTrend(30),
     enabled: canViewReports,
   });
 
   const { data: byDepartment } = useQuery({
     queryKey: ["reports", "by-department"],
-    queryFn: () => api.get<Array<{ name: string; count: number }>>("/reports/tickets-by-department"),
+    queryFn: () => reportsDb.getTicketsByDepartment(),
     enabled: canViewReports,
   });
 
   const { data: workload } = useQuery({
     queryKey: ["reports", "workload"],
-    queryFn: () => api.get<Array<{ name: string; open: number; total: number }>>("/reports/technician-workload"),
+    queryFn: () => reportsDb.getTechnicianWorkload(),
     enabled: can("TICKET_ASSIGN"),
   });
 
   const { data: recentTickets, isLoading: ticketsLoading } = useQuery({
-    queryKey: ["tickets", "recent", user?.role.name],
+    queryKey: ["tickets", "recent", user?.role.name, user?.id],
     queryFn: () =>
-      api.get<PaginatedResult<TicketType>>("/tickets", {
+      ticketsDb.listTickets({
+        requestingUserId: user!.id,
+        requestingUserRole: user!.role.name,
         page: 1,
         pageSize: 8,
         sort: "newest",
-        mine: user?.role.name === "Employee" ? 1 : undefined,
+        mine: user?.role.name === "Employee",
       }),
+    enabled: !!user,
   });
 
   const statusData = summary?.byStatus
-    ? Object.entries(summary.byStatus as unknown as Record<string, number>)
+    ? Object.entries(summary.byStatus)
         .filter(([, v]) => v > 0)
         .map(([name, value]) => ({ name, value }))
     : [];
@@ -283,7 +285,7 @@ export default function DashboardPage() {
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard
             label="My Open Tickets"
-            value={recentTickets?.data.filter((t) => !t.status.isClosed).length ?? 0}
+            value={recentTickets?.data.filter((t) => t.status !== "Closed").length ?? 0}
             icon={Clock}
             tone="bg-sky-100 text-sky-700"
           />
@@ -347,7 +349,7 @@ export default function DashboardPage() {
                       {t.assignedTechnician ? `${t.assignedTechnician.firstName} ${t.assignedTechnician.lastName}` : "Unassigned"}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge name={t.status.name} />
+                      <StatusBadge name={t.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(t.createdAt)}</TableCell>
                     <TableCell>

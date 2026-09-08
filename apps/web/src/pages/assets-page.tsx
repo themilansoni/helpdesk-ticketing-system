@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Laptop, PlusCircle, Search } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { assetsDb, usersDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
@@ -15,9 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { useAssetTypes, useDepartments, useLocations, useTechnicians } from "@/hooks/use-reference-data";
+import { useAssetTypes, useDepartments, useLocations } from "@/hooks/use-reference-data";
 import { debounce, formatDate } from "@/lib/utils";
-import type { Asset, PaginatedResult } from "@/types";
+import type { Asset } from "@/types";
 
 const ALL = "__all__";
 const PAGE_SIZE = 12;
@@ -45,7 +46,11 @@ export default function AssetsPage() {
   const { data: assetTypes } = useAssetTypes();
   const { data: departments } = useDepartments();
   const { data: locations } = useLocations();
-  const { data: technicians } = useTechnicians();
+  const { data: allUsers } = useQuery({
+    queryKey: ["users", "all-for-assign"],
+    queryFn: () => usersDb.listUsers({ page: 1, pageSize: 200 }),
+    enabled: canManage,
+  });
 
   const debouncedSearch = useMemo(
     () =>
@@ -57,14 +62,16 @@ export default function AssetsPage() {
   );
 
   const { data, isLoading } = useQuery({
-    queryKey: ["assets", search, status, page],
+    queryKey: ["assets", search, status, page, user?.role.name, user?.id],
     queryFn: () =>
-      api.get<PaginatedResult<Asset>>("/assets", {
+      assetsDb.listAssets({
         search: search || undefined,
         status: status === ALL ? undefined : status,
+        assignedUserId: user?.role.name === "Employee" ? user.id : undefined,
         page,
         pageSize: PAGE_SIZE,
       }),
+    enabled: !!user,
   });
 
   const [assetTag, setAssetTag] = useState("");
@@ -78,16 +85,19 @@ export default function AssetsPage() {
 
   const createAsset = useMutation({
     mutationFn: () =>
-      api.post("/assets", {
-        assetTag,
-        serialNumber: serialNumber || undefined,
-        assetTypeId,
-        manufacturer: manufacturer || undefined,
-        model: model || undefined,
-        departmentId: departmentId || undefined,
-        locationId: locationId || undefined,
-        status: "available",
-      }),
+      assetsDb.createAsset(
+        {
+          assetTag,
+          serialNumber: serialNumber || undefined,
+          assetTypeId,
+          manufacturer: manufacturer || undefined,
+          model: model || undefined,
+          departmentId: departmentId || undefined,
+          locationId: locationId || undefined,
+          status: "available",
+        },
+        user!.id
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast({ title: "Asset created" });
@@ -98,11 +108,11 @@ export default function AssetsPage() {
       setManufacturer("");
       setModel("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to create asset."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to create asset.")),
   });
 
   const assignMutation = useMutation({
-    mutationFn: () => api.post(`/assets/${assignAsset?.id}/assign`, { userId: assignUserId || null }),
+    mutationFn: () => assetsDb.assignAsset(assignAsset!.id, assignUserId || null, user!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast({ title: "Asset assignment updated" });
@@ -130,7 +140,7 @@ export default function AssetsPage() {
           <Input placeholder="Search by tag, serial, model..." className="pl-8" onChange={(e) => debouncedSearch(e.target.value)} />
         </div>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-44" aria-label="Status"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All statuses</SelectItem>
             <SelectItem value="available">Available</SelectItem>
@@ -216,7 +226,7 @@ export default function AssetsPage() {
             <div className="space-y-1.5">
               <Label>Type</Label>
               <Select value={assetTypeId} onValueChange={setAssetTypeId}>
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectTrigger aria-label="Asset type"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   {assetTypes?.map((t) => (
                     <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -235,7 +245,7 @@ export default function AssetsPage() {
             <div className="space-y-1.5">
               <Label>Department</Label>
               <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectTrigger aria-label="Department"><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
                   {departments?.map((d) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
@@ -246,7 +256,7 @@ export default function AssetsPage() {
             <div className="col-span-2 space-y-1.5">
               <Label>Location</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                <SelectTrigger aria-label="Location"><SelectValue placeholder="Select location" /></SelectTrigger>
                 <SelectContent>
                   {locations?.map((l) => (
                     <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
@@ -269,11 +279,11 @@ export default function AssetsPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Assign {assignAsset?.assetTag}</DialogTitle></DialogHeader>
           <Select value={assignUserId || ALL} onValueChange={(v) => setAssignUserId(v === ALL ? "" : v)}>
-            <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+            <SelectTrigger aria-label="Assign to"><SelectValue placeholder="Select employee" /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Unassign</SelectItem>
-              {technicians?.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.firstName} {t.lastName}</SelectItem>
+              {allUsers?.data.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.role.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

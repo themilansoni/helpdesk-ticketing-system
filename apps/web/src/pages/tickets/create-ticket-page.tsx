@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { Paperclip } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { CONTACT_METHODS } from "@helpdesk/shared";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useCategories, usePriorities, useDepartments, useLocations, useMyAssets } from "@/hooks/use-reference-data";
-import type { Ticket } from "@/types";
 
 export default function CreateTicketPage() {
   const { user } = useAuth();
@@ -43,25 +43,29 @@ export default function CreateTicketPage() {
 
   const createTicket = useMutation({
     mutationFn: async () => {
-      const formData = new FormData();
-      formData.set("subject", subject);
-      formData.set("description", description);
-      formData.set("categoryId", categoryId);
-      if (subcategoryId) formData.set("subcategoryId", subcategoryId);
-      formData.set("priorityId", priorityId);
-      if (departmentId) formData.set("departmentId", departmentId);
-      if (locationId) formData.set("locationId", locationId);
-      if (assetId) formData.set("assetId", assetId);
-      formData.set("preferredContactMethod", contactMethod);
-      files.forEach((f) => formData.append("attachments", f));
-      return api.postForm<Ticket>("/tickets", formData);
+      if (!user) throw new Error("You must be signed in.");
+      return ticketsDb.createTicket(
+        {
+          subject,
+          description,
+          categoryId,
+          subcategoryId: subcategoryId || undefined,
+          priorityId,
+          departmentId: departmentId || undefined,
+          locationId: locationId || undefined,
+          assetId: assetId || undefined,
+          preferredContactMethod: contactMethod as (typeof CONTACT_METHODS)[number],
+        },
+        user,
+        files
+      );
     },
     onSuccess: (ticket) => {
       toast({ title: "Ticket created", description: `${ticket.ticketNumber} has been submitted.` });
       navigate(`/tickets/${ticket.id}`);
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Unable to create ticket. Please try again.");
+      setError(getErrorMessage(err, "Unable to create ticket. Please try again."));
     },
   });
 

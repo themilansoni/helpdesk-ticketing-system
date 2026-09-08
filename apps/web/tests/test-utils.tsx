@@ -2,8 +2,8 @@ import type { ReactElement, ReactNode } from "react";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/lib/auth";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import type { CurrentUser } from "@/types";
 
 export function createTestQueryClient() {
   return new QueryClient({
@@ -22,9 +22,7 @@ export function renderWithProviders(
     return (
       <MemoryRouter initialEntries={[route]}>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <TooltipProvider>{children}</TooltipProvider>
-          </AuthProvider>
+          <TooltipProvider>{children}</TooltipProvider>
         </QueryClientProvider>
       </MemoryRouter>
     );
@@ -32,37 +30,36 @@ export function renderWithProviders(
   return render(ui, { wrapper: Wrapper });
 }
 
-/**
- * Builds a mock `fetch` implementation for the HelpDesk API. Pass a map of
- * "METHOD path-substring" -> response (or a function returning one) and any
- * unmatched request resolves to a 404 so tests fail loudly instead of
- * hanging on an unresolved request.
- */
-export function mockApiFetch(
-  handlers: Record<string, unknown | ((url: URL, init?: RequestInit) => unknown)>
-) {
-  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(typeof input === "string" ? input : input.toString());
-    const method = init?.method ?? "GET";
-    // Prefer the most specific (longest) matching path fragment so e.g.
-    // "GET tickets/t1/comments" wins over the broader "GET tickets" for a
-    // comments request, even though both fragments technically match.
-    const key = Object.keys(handlers)
-      .filter((k) => {
-        const [m, pathFragment] = k.split(" ");
-        return m === method && url.pathname.includes(pathFragment);
-      })
-      .sort((a, b) => b.length - a.length)[0];
+export const TEST_EMPLOYEE: CurrentUser = {
+  id: "emp-1",
+  employeeId: "EMP-0004",
+  firstName: "Emma",
+  lastName: "Employee",
+  email: "employee@helpdesk.local",
+  phone: null,
+  jobTitle: null,
+  status: "active",
+  lastLoginAt: null,
+  role: { name: "Employee" },
+  department: { id: "dep-1", name: "Sales" },
+  location: { id: "loc-1", name: "HQ" },
+  managerId: null,
+};
 
-    if (!key) {
-      return new Response(JSON.stringify({ error: `No mock handler for ${method} ${url.pathname}` }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      });
-    }
+export const TEST_TECHNICIAN: CurrentUser = {
+  ...TEST_EMPLOYEE,
+  id: "tech-1",
+  firstName: "Tom",
+  lastName: "Technician",
+  email: "technician@helpdesk.local",
+  role: { name: "Technician" },
+};
 
-    const handler = handlers[key];
-    const value = typeof handler === "function" ? (handler as (u: URL, i?: RequestInit) => unknown)(url, init) : handler;
-    return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
-  });
-}
+export const TEST_ADMIN: CurrentUser = {
+  ...TEST_EMPLOYEE,
+  id: "admin-1",
+  firstName: "Ava",
+  lastName: "Admin",
+  email: "admin@helpdesk.local",
+  role: { name: "Administrator" },
+};

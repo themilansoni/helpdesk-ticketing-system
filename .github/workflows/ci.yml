@@ -7,63 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  api:
-    name: API - typecheck, test, build
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: helpdesk
-          POSTGRES_PASSWORD: helpdesk
-          POSTGRES_DB: helpdesk_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U helpdesk"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://helpdesk:helpdesk@localhost:5432/helpdesk_test?schema=public
-      NODE_ENV: test
-      JWT_ACCESS_SECRET: ci-access-secret-not-for-production
-      JWT_REFRESH_SECRET: ci-refresh-secret-not-for-production
-      EMAIL_PROVIDER: mock
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Generate Prisma client
-        run: npm run db:generate --workspace=packages/database
-
-      - name: Apply Prisma migrations to test database
-        run: npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma
-
-      - name: Build shared package
-        run: npm run build --workspace=packages/shared
-
-      - name: Typecheck API
-        run: npm run typecheck --workspace=apps/api
-
-      - name: Lint API
-        run: npm run lint --workspace=apps/api
-
-      - name: Test API (against real PostgreSQL)
-        run: npm run test --workspace=apps/api
-
-      - name: Build API
-        run: npm run build:api
-
   web:
-    name: Web - typecheck, test, build
+    name: Web - typecheck, lint, test, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,4 +34,31 @@ jobs:
         run: npm run test --workspace=apps/web
 
       - name: Build web app
-        run: npm run build:web
+        run: npm run build --workspace=apps/web
+
+  firestore-rules:
+    name: Validate Firestore & Storage rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Java (required by the Firebase emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate rules compile and emulators boot
+        run: |
+          npx firebase-tools emulators:exec \
+            --project demo-helpdesk-ci \
+            --only firestore,auth,storage \
+            "echo 'Firestore/Storage/Auth emulators started successfully with the committed rules.'"

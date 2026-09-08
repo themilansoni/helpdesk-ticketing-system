@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@/lib/api";
-import { useStatuses } from "@/hooks/use-reference-data";
+import { ticketsDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { STATUS_TRANSITIONS, PENDING_REASONS, PENDING_REASON_LABELS, type TicketStatusName } from "@helpdesk/shared";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -12,24 +13,20 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import type { Ticket } from "@/types";
 
 export function ChangeStatusDialog({ ticket, open, onOpenChange }: { ticket: Ticket; open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { data: statuses } = useStatuses();
-  const allowedNames = STATUS_TRANSITIONS[ticket.status.name as TicketStatusName] ?? [];
-  const options = statuses?.filter((s) => allowedNames.includes(s.name as TicketStatusName)) ?? [];
+  const { user } = useAuth();
+  const options = STATUS_TRANSITIONS[ticket.status as TicketStatusName] ?? [];
 
-  const [statusId, setStatusId] = useState("");
+  const [status, setStatus] = useState<TicketStatusName | "">("");
   const [pendingReason, setPendingReason] = useState("waiting_for_user");
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const selected = statuses?.find((s) => s.id === statusId);
-
   const changeStatus = useMutation({
     mutationFn: () =>
-      api.post(`/tickets/${ticket.id}/status`, {
-        statusId,
-        pendingReason: selected?.name === "Pending" ? pendingReason : undefined,
+      ticketsDb.changeTicketStatus(ticket.id, status as TicketStatusName, user!, {
+        pendingReason: status === "Pending" ? pendingReason : undefined,
         comment: comment || undefined,
       }),
     onSuccess: () => {
@@ -40,7 +37,7 @@ export function ChangeStatusDialog({ ticket, open, onOpenChange }: { ticket: Tic
       onOpenChange(false);
       setComment("");
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to update status."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to update status.")),
   });
 
   return (
@@ -52,21 +49,21 @@ export function ChangeStatusDialog({ ticket, open, onOpenChange }: { ticket: Tic
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>New status</Label>
-            <Select value={statusId} onValueChange={setStatusId}>
-              <SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger>
+            <Select value={status} onValueChange={(v) => setStatus(v as TicketStatusName)}>
+              <SelectTrigger aria-label="New status"><SelectValue placeholder="Select a status" /></SelectTrigger>
               <SelectContent>
                 {options.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {selected?.name === "Pending" && (
+          {status === "Pending" && (
             <div className="space-y-1.5">
               <Label>Reason</Label>
               <Select value={pendingReason} onValueChange={setPendingReason}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Pending reason"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PENDING_REASONS.map((r) => (
                     <SelectItem key={r} value={r}>{PENDING_REASON_LABELS[r]}</SelectItem>
@@ -84,7 +81,7 @@ export function ChangeStatusDialog({ ticket, open, onOpenChange }: { ticket: Tic
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!statusId || changeStatus.isPending} onClick={() => changeStatus.mutate()}>
+          <Button disabled={!status || changeStatus.isPending} onClick={() => changeStatus.mutate()}>
             {changeStatus.isPending ? "Updating..." : "Update Status"}
           </Button>
         </DialogFooter>

@@ -21,6 +21,7 @@ export default defineConfig({
         manualChunks: {
           react: ["react", "react-dom", "react-router-dom"],
           charts: ["recharts"],
+          firebase: ["firebase/app", "firebase/auth", "firebase/firestore", "firebase/storage"],
           "radix-ui": [
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",

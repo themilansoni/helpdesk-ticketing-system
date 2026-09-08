@@ -1,24 +1,47 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Paperclip, Send } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
+import { getAttachmentDownloadUrl } from "@/lib/db/storage";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/firebase-errors";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { cn, formatDateTime } from "@/lib/utils";
-import type { TicketComment } from "@/types";
+import type { TicketAttachmentMeta } from "@/types";
+
+export function AttachmentLink({ attachment }: { attachment: TicketAttachmentMeta }) {
+  const { data: url } = useQuery({
+    queryKey: ["attachment-url", attachment.storagePath],
+    queryFn: () => getAttachmentDownloadUrl(attachment.storagePath),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  return (
+    <a
+      href={url ?? "#"}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => !url && e.preventDefault()}
+      className="flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-1 text-xs hover:bg-secondary/70"
+    >
+      <Paperclip className="h-3 w-3" />
+      {attachment.fileName}
+    </a>
+  );
+}
 
 export function CommentThread({ ticketId }: { ticketId: string }) {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isStaff = can("TICKET_ADD_INTERNAL_NOTE");
 
   const { data: comments, isLoading } = useQuery({
     queryKey: ["ticket-comments", ticketId],
-    queryFn: () => api.get<TicketComment[]>(`/tickets/${ticketId}/comments`),
+    queryFn: () => ticketsDb.listTicketComments(ticketId),
   });
 
   const [body, setBody] = useState("");
@@ -27,13 +50,7 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const addComment = useMutation({
-    mutationFn: async () => {
-      const formData = new FormData();
-      formData.set("body", body);
-      formData.set("isInternal", String(isInternal));
-      files.forEach((f) => formData.append("attachments", f));
-      return api.postForm(`/tickets/${ticketId}/comments`, formData);
-    },
+    mutationFn: () => ticketsDb.addTicketComment(ticketId, user!, body, isInternal, files),
     onSuccess: () => {
       setBody("");
       setFiles([]);
@@ -43,7 +60,7 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
       queryClient.invalidateQueries({ queryKey: ["ticket", ticketId] });
       toast({ title: "Comment posted" });
     },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "Unable to post comment."),
+    onError: (err) => setError(getErrorMessage(err, "Unable to post comment.")),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -53,13 +70,15 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
     addComment.mutate();
   }
 
+  const visibleComments = isStaff ? comments : comments?.filter((c) => !c.isInternal);
+
   return (
     <div className="space-y-4">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading conversation...</p>
-      ) : comments && comments.length > 0 ? (
+      ) : visibleComments && visibleComments.length > 0 ? (
         <div className="space-y-3">
-          {comments.map((c) => (
+          {visibleComments.map((c) => (
             <div
               key={c.id}
               className={cn(
@@ -84,16 +103,7 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
                 {c.attachments.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {c.attachments.map((a) => (
-                      <a
-                        key={a.id}
-                        href={`${import.meta.env.VITE_API_BASE_URL}/tickets/${ticketId}/attachments/${a.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-1 text-xs hover:bg-secondary/70"
-                      >
-                        <Paperclip className="h-3 w-3" />
-                        {a.fileName}
-                      </a>
+                      <AttachmentLink key={a.storagePath} attachment={a} />
                     ))}
                   </div>
                 )}

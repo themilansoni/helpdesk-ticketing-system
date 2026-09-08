@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { referenceDb } from "@/lib/db";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ function SettingRow({ setting }: { setting: Setting }) {
   const { toast } = useToast();
 
   const save = useMutation({
-    mutationFn: () => api.put(`/settings/${setting.key}`, { value }),
+    mutationFn: () => referenceDb.updateSystemSetting(setting.key, value),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast({ title: `${setting.key} updated` });
@@ -48,7 +48,7 @@ function SettingRow({ setting }: { setting: Setting }) {
 export default function SettingsPage() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["settings"],
-    queryFn: () => api.get<Setting[]>("/settings"),
+    queryFn: () => referenceDb.getSystemSettings(),
   });
 
   return (

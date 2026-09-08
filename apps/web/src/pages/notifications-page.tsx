@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, BellOff } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api } from "@/lib/api";
+import { notificationsDb } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
@@ -16,20 +17,22 @@ function entityHref(n: AppNotification): string | null {
 }
 
 export default function NotificationsPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: notifications, isLoading } = useQuery({
-    queryKey: ["notifications", "recent"],
-    queryFn: () => api.get<AppNotification[]>("/notifications"),
+    queryKey: ["notifications", "recent", user?.id],
+    queryFn: () => notificationsDb.listMyNotifications(user!.id),
+    enabled: !!user,
   });
 
   const markRead = useMutation({
-    mutationFn: (id: string) => api.post(`/notifications/${id}/read`),
+    mutationFn: (id: string) => notificationsDb.markNotificationRead(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   const markAllRead = useMutation({
-    mutationFn: () => api.post("/notifications/read-all"),
+    mutationFn: () => notificationsDb.markAllNotificationsRead(user!.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 

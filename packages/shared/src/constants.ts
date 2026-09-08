@@ -76,6 +76,20 @@ export type TicketHistoryAction = (typeof TICKET_HISTORY_ACTIONS)[number];
 export const SLA_HEALTH = ["healthy", "at_risk", "breached"] as const;
 export type SlaHealth = (typeof SLA_HEALTH)[number];
 
+// Fixed metadata for the ticket workflow. There's no "statuses" database
+// table in the Firestore data model (the workflow is fixed, not
+// admin-editable), so this is the single source of truth both the client
+// data layer and firestore.rules logic are written against.
+export const STATUS_META: Record<TicketStatusName, { order: number; isClosed: boolean; isDefault: boolean }> = {
+  New: { order: 0, isClosed: false, isDefault: true },
+  Open: { order: 1, isClosed: false, isDefault: false },
+  "In Progress": { order: 2, isClosed: false, isDefault: false },
+  Pending: { order: 3, isClosed: false, isDefault: false },
+  Resolved: { order: 4, isClosed: false, isDefault: false },
+  Closed: { order: 5, isClosed: true, isDefault: false },
+  Reopened: { order: 6, isClosed: false, isDefault: false },
+};
+
 // Allowed forward transitions in the ticket status workflow.
 // Closed -> Reopened is the only "backward" transition, then Reopened behaves like Open.
 export const STATUS_TRANSITIONS: Record<TicketStatusName, TicketStatusName[]> = {

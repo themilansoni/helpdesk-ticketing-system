@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, UserPlus, RefreshCcw, Gauge, TrendingUp, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
+import { ticketsDb } from "@/lib/db";
+import { DbError } from "@/lib/db/helpers";
 import { useAuth } from "@/lib/auth";
 import { PENDING_REASON_LABELS } from "@helpdesk/shared";
 import { PageHeader } from "@/components/common/page-header";
@@ -15,7 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { StatusBadge } from "@/components/tickets/status-badge";
 import { PriorityBadge } from "@/components/tickets/priority-badge";
 import { SlaCountdown } from "@/components/tickets/sla-indicator";
-import { CommentThread } from "@/components/tickets/comment-thread";
+import { CommentThread, AttachmentLink } from "@/components/tickets/comment-thread";
 import { HistoryTimeline } from "@/components/tickets/history-timeline";
 import { AssignDialog } from "@/components/tickets/assign-dialog";
 import { ChangeStatusDialog } from "@/components/tickets/change-status-dialog";
@@ -23,7 +24,6 @@ import { ChangePriorityDialog } from "@/components/tickets/change-priority-dialo
 import { EscalateDialog } from "@/components/tickets/escalate-dialog";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { formatDateTime } from "@/lib/utils";
-import type { Ticket } from "@/types";
 
 function SidebarRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -36,7 +36,7 @@ function SidebarRow({ label, value }: { label: string; value: React.ReactNode })
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -44,12 +44,14 @@ export default function TicketDetailPage() {
 
   const { data: ticket, isLoading, error } = useQuery({
     queryKey: ["ticket", id],
-    queryFn: () => api.get<Ticket>(`/tickets/${id}`),
+    queryFn: () => ticketsDb.getTicketById(id!),
     enabled: !!id,
   });
 
+  const canViewTicket = !ticket || user?.role.name !== "Employee" || ticket.requester.id === user.id;
+
   const resolveTicket = useMutation({
-    mutationFn: () => api.post(`/tickets/${id}/resolve`, {}),
+    mutationFn: () => ticketsDb.changeTicketStatus(id!, "Resolved", user!, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["ticket-history", id] });
@@ -58,7 +60,7 @@ export default function TicketDetailPage() {
   });
 
   const closeTicket = useMutation({
-    mutationFn: () => api.post(`/tickets/${id}/close`, {}),
+    mutationFn: () => ticketsDb.changeTicketStatus(id!, "Closed", user!, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["ticket-history", id] });
@@ -68,7 +70,7 @@ export default function TicketDetailPage() {
   });
 
   const reopenTicket = useMutation({
-    mutationFn: () => api.post(`/tickets/${id}/reopen`, {}),
+    mutationFn: () => ticketsDb.changeTicketStatus(id!, "Reopened", user!, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["ticket-history", id] });
@@ -77,7 +79,7 @@ export default function TicketDetailPage() {
     },
   });
 
-  if (error instanceof ApiError && error.status === 403) {
+  if ((error instanceof DbError && error.status === 403) || !canViewTicket) {
     return <Navigate to="/forbidden" replace />;
   }
 
@@ -95,7 +97,7 @@ export default function TicketDetailPage() {
   const canChangeStatus = can("TICKET_CHANGE_STATUS");
   const canChangePriority = can("TICKET_CHANGE_PRIORITY");
   const canEscalate = can("TICKET_ESCALATE");
-  const isClosed = ticket.status.isClosed;
+  const isClosed = ticket.status === "Closed";
 
   return (
     <div>
@@ -109,7 +111,7 @@ export default function TicketDetailPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <StatusBadge name={ticket.status.name} />
+        <StatusBadge name={ticket.status} />
         <PriorityBadge name={ticket.priority.name} />
         {ticket.pendingReason && (
           <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs">
@@ -143,7 +145,7 @@ export default function TicketDetailPage() {
               <TrendingUp className="h-3.5 w-3.5" /> Escalate
             </Button>
           )}
-          {canChangeStatus && ticket.status.name !== "Resolved" && !isClosed && (
+          {canChangeStatus && ticket.status !== "Resolved" && !isClosed && (
             <Button size="sm" onClick={() => resolveTicket.mutate()} disabled={resolveTicket.isPending}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Resolve
             </Button>
@@ -169,6 +171,13 @@ export default function TicketDetailPage() {
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm text-foreground">{ticket.description}</p>
+              {ticket.attachments.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ticket.attachments.map((a) => (
+                    <AttachmentLink key={a.storagePath} attachment={a} />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
