@@ -111,7 +111,7 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
 
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <BrandLogo companyName={companyName} companyLogo={companyLogo} className="h-9 w-9" iconClassName="h-5 w-5" tone="dark" />
+          <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-11" iconClassName="h-5 w-5" tone="dark" />
           <span className="text-sm font-semibold tracking-tight">{companyName}</span>
         </div>
 
@@ -126,13 +126,13 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
 
       <div className="relative grid flex-1 grid-cols-1 items-center gap-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
-          <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white/80 backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
-            Internal IT Service Platform
+            HelpDesk Pro
           </span>
           <h2 className="text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl">
-            IT support your team will{" "}
-            <span className="bg-gradient-to-r from-teal-300 to-cyan-200 bg-clip-text text-transparent">actually enjoy</span> using.
+            Relax, we will do{" "}
+            <span className="bg-gradient-to-r from-teal-300 to-cyan-200 bg-clip-text text-transparent">IT</span> for you!!!
           </h2>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70">
             {companyName}'s internal help desk for tracking tickets, managing assets, and keeping SLAs on track — all
@@ -212,8 +212,9 @@ export default function LoginPage() {
             <BrandLogo
               companyName={companyName}
               companyLogo={companyLogo}
-              className="mb-3 h-12 w-12 rounded-xl bg-teal-600 text-white shadow-md"
-              iconClassName="h-6 w-6"
+              heightClass="h-16"
+              className="mb-3 rounded-xl bg-teal-600 text-white shadow-md"
+              iconClassName="h-7 w-7"
             />
             <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
             <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>

@@ -66,7 +66,7 @@ export function Sidebar({ role, open, onNavigate }: SidebarProps) {
       )}
     >
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <BrandLogo companyName={companyName} companyLogo={companyLogo} />
+        <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-9" />
         <div className="leading-tight">
           <p className="text-sm font-bold text-foreground">{companyName}</p>
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IT Service Management</p>
