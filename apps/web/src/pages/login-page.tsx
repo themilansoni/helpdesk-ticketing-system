@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
+import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/common/brand-logo";
 import { ProductLogo } from "@/components/common/product-logo";
 import { ThemeToggle } from "@/components/common/theme-toggle";
@@ -43,6 +44,36 @@ const PREVIEW_TICKETS = [
   { id: "HD-2315", title: "Shared drive access", tone: "bg-emerald-400" },
 ];
 
+const BASE_BARS = [40, 65, 50, 80, 60, 95, 70];
+
+const LIVE_TIPS = [
+  "Tickets auto-route by keyword, instantly",
+  "SLA breaches trigger alerts before they happen",
+  "Role-based access, enforced on every request",
+  "One search across the whole knowledge base",
+];
+
+function LiveTicker() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setIndex((i) => (i + 1) % LIVE_TIPS.length), 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-white/60">
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-300 opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-300" />
+      </span>
+      <span key={index} className="animate-fade-in-up">
+        {LIVE_TIPS[index]}
+      </span>
+    </div>
+  );
+}
+
 function LiveClock() {
   const [now, setNow] = useState(new Date());
 
@@ -61,6 +92,17 @@ function LiveClock() {
 }
 
 function ProductPreviewCard() {
+  const [bars, setBars] = useState(BASE_BARS);
+  const [activeRow, setActiveRow] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setBars((prev) => prev.map((h) => Math.min(100, Math.max(20, h + (Math.random() * 24 - 12)))));
+      setActiveRow((i) => (i + 1) % PREVIEW_TICKETS.length);
+    }, 2200);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="relative rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/20 backdrop-blur-sm">
       <div className="mb-3 flex items-center gap-2">
@@ -69,13 +111,22 @@ function ProductPreviewCard() {
         <span className="h-2 w-2 rounded-full bg-white/25" />
         <span className="ml-1.5 text-[11px] font-medium text-white/40">Ticket Dashboard</span>
         <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          </span>
           Live
         </span>
       </div>
       <div className="space-y-1.5">
-        {PREVIEW_TICKETS.map((t) => (
-          <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.05] px-3 py-2">
+        {PREVIEW_TICKETS.map((t, i) => (
+          <div
+            key={t.id}
+            className={cn(
+              "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors duration-700",
+              i === activeRow ? "bg-white/[0.1] ring-1 ring-teal-300/30" : "bg-white/[0.05]"
+            )}
+          >
             <div className="flex min-w-0 items-center gap-2">
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.tone}`} />
               <span className="truncate text-xs text-white/80">{t.title}</span>
@@ -85,8 +136,12 @@ function ProductPreviewCard() {
         ))}
       </div>
       <div className="mt-3 flex items-end gap-1">
-        {[40, 65, 50, 80, 60, 95, 70].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t-sm bg-gradient-to-t from-teal-400/70 to-cyan-300/70" style={{ height: `${h * 0.3}px` }} />
+        {bars.map((h, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-t-sm bg-gradient-to-t from-teal-400/70 to-cyan-300/70 transition-all duration-700 ease-out"
+            style={{ height: `${h * 0.3}px` }}
+          />
         ))}
       </div>
     </div>
@@ -147,6 +202,10 @@ function BrandPanel({ companyName }: { companyName: string }) {
                 <span className="text-xs font-medium text-white/85">{f.label}</span>
               </div>
             ))}
+          </div>
+
+          <div className="mt-6">
+            <LiveTicker />
           </div>
         </div>
 
