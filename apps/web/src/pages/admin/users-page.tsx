@@ -1,10 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { KeyRound, Pencil, PlusCircle, Search, Users as UsersIcon } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  FileUp,
+  KeyRound,
+  Loader2,
+  Pencil,
+  PlusCircle,
+  Search,
+  Upload,
+  Users as UsersIcon,
+  XCircle,
+} from "lucide-react";
 import { usersDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
+import { parseCsv, csvRowsToObjects, toCsv } from "@/lib/csv";
 import { ROLES, type RoleName } from "@helpdesk/shared";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
@@ -29,6 +42,26 @@ import { useToast } from "@/components/ui/use-toast";
 import { useDepartments } from "@/hooks/use-reference-data";
 import { debounce } from "@/lib/utils";
 import type { CurrentUser } from "@/types";
+
+interface ImportRow {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roleName: RoleName | null;
+  departmentId: string | null;
+  departmentNameRaw: string;
+  jobTitle: string;
+  errors: string[];
+}
+
+type ImportRowResult = { status: "pending" | "success" | "error"; message?: string };
+
+function generateTempPassword(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return "Tmp-" + Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 16) + "!1";
+}
 
 const ALL = "__all__";
 const PAGE_SIZE = 15;
@@ -157,15 +190,126 @@ export default function UsersPage() {
     onError: (err) => setEditError(getErrorMessage(err, "Unable to update user.")),
   });
 
+  // --- Bulk import (CSV) state ---
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importResults, setImportResults] = useState<Record<number, ImportRowResult>>({});
+  const [importRunning, setImportRunning] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+
+  function resetImport() {
+    setImportFileName("");
+    setImportRows([]);
+    setImportResults({});
+    setImportRunning(false);
+  }
+
+  async function handleImportFile(file: File) {
+    setImportFileName(file.name);
+    setImportResults({});
+    const text = await file.text();
+    const objects = csvRowsToObjects(parseCsv(text));
+    const parsed: ImportRow[] = objects.map((r) => {
+      const errors: string[] = [];
+      const employeeId = r["employeeid"] ?? r["employee id"] ?? "";
+      const firstName = r["firstname"] ?? r["first name"] ?? "";
+      const lastName = r["lastname"] ?? r["last name"] ?? "";
+      const email = r["email"] ?? "";
+      const roleRaw = (r["role"] ?? "").trim();
+      const departmentNameRaw = r["department"] ?? "";
+      const jobTitle = r["jobtitle"] ?? r["job title"] ?? "";
+
+      if (!employeeId) errors.push("Missing employee ID");
+      if (!firstName) errors.push("Missing first name");
+      if (!lastName) errors.push("Missing last name");
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Invalid email");
+
+      const roleMatch = ROLES.find((r2) => r2.toLowerCase() === roleRaw.toLowerCase());
+      if (!roleMatch) errors.push(roleRaw ? `Unknown role "${roleRaw}"` : "Missing role");
+
+      let departmentId: string | null = null;
+      if (departmentNameRaw) {
+        const dept = departments?.find((d) => d.name.toLowerCase() === departmentNameRaw.toLowerCase());
+        if (dept) departmentId = dept.id;
+        else errors.push(`Unknown department "${departmentNameRaw}"`);
+      }
+
+      return { employeeId, firstName, lastName, email, roleName: roleMatch ?? null, departmentId, departmentNameRaw, jobTitle, errors };
+    });
+    setImportRows(parsed);
+  }
+
+  const validImportCount = importRows.filter((r) => r.errors.length === 0).length;
+
+  async function runImport() {
+    setImportRunning(true);
+    const results: Record<number, ImportRowResult> = {};
+    for (let i = 0; i < importRows.length; i++) {
+      const row = importRows[i];
+      if (row.errors.length > 0) {
+        results[i] = { status: "error", message: row.errors.join(", ") };
+        setImportResults({ ...results });
+        continue;
+      }
+      try {
+        const uid = await usersDb.createUser(
+          {
+            employeeId: row.employeeId,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            email: row.email,
+            password: generateTempPassword(),
+            roleName: row.roleName!,
+            departmentId: row.departmentId ?? undefined,
+            jobTitle: row.jobTitle || undefined,
+          },
+          currentUser!.id
+        );
+        await usersDb.sendUserPasswordReset(row.email, currentUser!.id, uid).catch(() => {});
+        results[i] = { status: "success" };
+      } catch (err) {
+        results[i] = { status: "error", message: getErrorMessage(err, "Failed to create user.") };
+      }
+      setImportResults({ ...results });
+    }
+    setImportRunning(false);
+    queryClient.invalidateQueries({ queryKey: ["users"] });
+    const successCount = Object.values(results).filter((r) => r.status === "success").length;
+    toast({
+      title: `Imported ${successCount} of ${importRows.length} users`,
+      description: successCount > 0 ? "Each new user was emailed a link to set their password." : undefined,
+    });
+  }
+
+  function downloadImportTemplate() {
+    const csv = toCsv(
+      ["employeeId", "firstName", "lastName", "email", "role", "department", "jobTitle"],
+      [["EMP-1234", "Jane", "Doe", "jane.doe@company.com", "Employee", departments?.[0]?.name ?? "IT", "Support Analyst"]]
+    );
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "user-import-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <PageHeader
         title="Users"
         description="Manage employee accounts, roles, and access."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <PlusCircle className="h-4 w-4" /> New User
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { resetImport(); setImportOpen(true); }}>
+              <FileUp className="h-4 w-4" /> Bulk Import
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <PlusCircle className="h-4 w-4" /> New User
+            </Button>
+          </div>
         }
       />
 
@@ -371,6 +515,104 @@ export default function UsersPage() {
             <Button disabled={!editFirstName || !editLastName || editUser.isPending} onClick={() => editUser.mutate()}>
               {editUser.isPending ? "Saving..." : "Save Changes"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={(v) => { if (!importRunning) { setImportOpen(v); if (!v) resetImport(); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Bulk Import Users</DialogTitle></DialogHeader>
+
+          {importRows.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Upload a CSV with columns <code className="rounded bg-secondary px-1 py-0.5 text-xs">employeeId, firstName,
+                lastName, email, role, department, jobTitle</code>. Each new user gets a random temporary password and
+                an email to set their own.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={downloadImportTemplate}>
+                  <Download className="h-4 w-4" /> Download Template
+                </Button>
+                <Button variant="outline" onClick={() => importFileInputRef.current?.click()}>
+                  <Upload className="h-4 w-4" /> Choose CSV File
+                </Button>
+                <input
+                  ref={importFileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) handleImportFile(file);
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  <span className="font-medium text-foreground">{importFileName}</span> &middot; {importRows.length} rows,{" "}
+                  {validImportCount} ready to import
+                </span>
+                <Button variant="ghost" size="sm" onClick={resetImport} disabled={importRunning}>
+                  Choose a different file
+                </Button>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8" />
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Issue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importRows.map((row, i) => {
+                      const result = importResults[i];
+                      return (
+                        <TableRow key={i}>
+                          <TableCell>
+                            {result?.status === "success" ? (
+                              <CheckCircle2 className="h-4 w-4 text-success" />
+                            ) : result?.status === "error" || row.errors.length > 0 ? (
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            ) : importRunning ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="text-sm">{row.firstName} {row.lastName}</TableCell>
+                          <TableCell className="text-sm">{row.email || "-"}</TableCell>
+                          <TableCell className="text-sm">{row.roleName ?? "-"}</TableCell>
+                          <TableCell className="text-sm">{row.departmentNameRaw || "-"}</TableCell>
+                          <TableCell className="text-xs text-destructive">
+                            {result?.status === "error" ? result.message : row.errors.join(", ")}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importRunning}>
+              {Object.keys(importResults).length > 0 ? "Close" : "Cancel"}
+            </Button>
+            {importRows.length > 0 && (
+              <Button onClick={runImport} disabled={validImportCount === 0 || importRunning || Object.keys(importResults).length > 0}>
+                {importRunning ? "Importing..." : `Import ${validImportCount} User${validImportCount === 1 ? "" : "s"}`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
