@@ -14,6 +14,7 @@ const ACTION_LABELS: Record<string, string> = {
   resolved: "marked the ticket resolved",
   closed: "closed the ticket",
   reopened: "reopened the ticket",
+  rule_applied: "ran an automation rule",
 };
 
 export function HistoryTimeline({ ticketId }: { ticketId: string }) {

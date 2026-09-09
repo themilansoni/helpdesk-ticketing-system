@@ -17,6 +17,7 @@ import {
   Settings,
   AlertTriangle,
   ListTodo,
+  Zap,
 } from "lucide-react";
 import { NAV_BY_ROLE, type RoleName } from "@helpdesk/shared";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
@@ -41,6 +42,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   Technicians: Wrench,
   Categories: Tags,
   "Priorities & SLA": Gauge,
+  Automation: Zap,
   Reports: BarChart3,
   "Audit Logs": ScrollText,
   "System Settings": Settings,

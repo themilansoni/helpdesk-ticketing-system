@@ -121,6 +121,11 @@ export default function TicketDetailPage() {
         <span className="text-xs text-muted-foreground">
           Assigned to {ticket.assignedTechnician ? `${ticket.assignedTechnician.firstName} ${ticket.assignedTechnician.lastName}` : "no one"}
         </span>
+        {ticket.tags.map((tag) => (
+          <span key={tag} className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground">
+            #{tag}
+          </span>
+        ))}
       </div>
 
       {(canAssign || canChangeStatus || canChangePriority || canEscalate) && (

@@ -7,4 +7,5 @@ export * as kbDb from "./knowledgeBase";
 export * as notificationsDb from "./notifications";
 export * as reportsDb from "./reports";
 export * as auditDb from "./auditLogs";
+export * as businessRulesDb from "./businessRules";
 export * from "./storage";

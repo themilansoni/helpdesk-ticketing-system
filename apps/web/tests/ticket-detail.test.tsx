@@ -39,6 +39,7 @@ const TICKET_FIXTURE = vi.hoisted(() => ({
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   attachments: [],
+  tags: [],
   sla: { firstResponseHealth: "healthy" as const, resolutionHealth: "healthy" as const, resolutionPercentElapsed: 20, resolutionMsRemaining: 5000_000, overallHealth: "healthy" as const },
 }));
 

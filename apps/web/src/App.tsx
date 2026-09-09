@@ -17,6 +17,7 @@ import UsersPage from "@/pages/admin/users-page";
 import DepartmentsPage from "@/pages/admin/departments-page";
 import CategoriesPage from "@/pages/admin/categories-page";
 import PrioritiesPage from "@/pages/admin/priorities-page";
+import BusinessRulesPage from "@/pages/admin/business-rules-page";
 import AuditLogsPage from "@/pages/admin/audit-logs-page";
 import SettingsPage from "@/pages/admin/settings-page";
 import NotFoundPage from "@/pages/not-found-page";
@@ -82,6 +83,14 @@ export default function App() {
             element={
               <RequirePermission permission="PRIORITY_MANAGE">
                 <PrioritiesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/automation"
+            element={
+              <RequirePermission permission="AUTOMATION_MANAGE">
+                <BusinessRulesPage />
               </RequirePermission>
             }
           />

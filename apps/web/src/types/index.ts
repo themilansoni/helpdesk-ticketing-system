@@ -130,6 +130,26 @@ export interface Ticket {
   updatedAt: string;
   sla: SlaInfo;
   attachments: TicketAttachmentMeta[];
+  tags: string[];
+}
+
+export interface BusinessRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
+  keyword: string;
+  setCategoryId: string | null;
+  setCategoryName: string | null;
+  setPriorityId: string | null;
+  setPriorityName: string | null;
+  setDepartmentId: string | null;
+  setDepartmentName: string | null;
+  assignTechnicianId: string | null;
+  assignTechnicianName: string | null;
+  addTags: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TicketAttachmentMeta {

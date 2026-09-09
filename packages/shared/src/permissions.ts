@@ -25,6 +25,7 @@ export const PERMISSIONS = {
   REPORTS_VIEW: ["Technician", "Manager", "Administrator"],
   AUDIT_LOG_VIEW: ["Administrator"],
   SYSTEM_SETTINGS_MANAGE: ["Administrator"],
+  AUTOMATION_MANAGE: ["Administrator"],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -72,6 +73,7 @@ export const NAV_BY_ROLE: Record<RoleName, Array<{ label: string; path: string }
     { label: "Technicians", path: "/admin/users?role=Technician" },
     { label: "Categories", path: "/admin/categories" },
     { label: "Priorities & SLA", path: "/admin/priorities" },
+    { label: "Automation", path: "/admin/automation" },
     { label: "Assets", path: "/assets" },
     { label: "Knowledge Base", path: "/knowledge-base" },
     { label: "Reports", path: "/reports" },

@@ -74,6 +74,13 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if isAdmin();
     }
+    // Rules read by any active user at ticket-creation time (evaluated
+    // client-side inside createTicket - there's no server to run them),
+    // written only by admins.
+    match /businessRules/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
     match /systemSettings/{key} {
       // Public read: the login page (pre-auth) needs company_name/company_logo
       // for branding, and nothing else stored here is sensitive.

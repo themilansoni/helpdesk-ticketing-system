@@ -19,7 +19,53 @@ import { DbError, toIso, toIsoOrNull } from "./helpers";
 import { recordAudit } from "./auditLogs";
 import { notifyManyUsers, notifyUser } from "./notifications";
 import { uploadTicketAttachment } from "./storage";
-import type { CurrentUser, PaginatedResult, Ticket, TicketAttachmentMeta, TicketComment, TicketHistoryEntry } from "@/types";
+import { listBusinessRules } from "./businessRules";
+import type { BusinessRule, CurrentUser, PaginatedResult, Ticket, TicketAttachmentMeta, TicketComment, TicketHistoryEntry } from "@/types";
+
+interface RuleOutcome {
+  categoryId: string;
+  categoryOverridden: boolean;
+  priorityId: string;
+  departmentIdOverride: string | null | undefined;
+  assignTechnicianId: string | null;
+  tags: string[];
+  appliedRuleNames: string[];
+}
+
+// Event-triggered automation: evaluated client-side at ticket creation
+// (no backend to run scheduled/time-based rules - see business-rules-page.tsx).
+// Rules run in order; a later matching rule overrides an earlier one's
+// single-value fields, while tags accumulate across every match.
+function applyBusinessRules(input: CreateTicketInput, rules: BusinessRule[]): RuleOutcome {
+  const haystack = `${input.subject} ${input.description}`.toLowerCase();
+  const matched = rules.filter((r) => r.enabled && r.keyword.trim() && haystack.includes(r.keyword.trim().toLowerCase()));
+
+  const outcome: RuleOutcome = {
+    categoryId: input.categoryId,
+    categoryOverridden: false,
+    priorityId: input.priorityId,
+    departmentIdOverride: undefined,
+    assignTechnicianId: null,
+    tags: [],
+    appliedRuleNames: [],
+  };
+  const tagSet = new Set<string>();
+
+  for (const rule of matched) {
+    if (rule.setCategoryId) {
+      outcome.categoryId = rule.setCategoryId;
+      outcome.categoryOverridden = true;
+    }
+    if (rule.setPriorityId) outcome.priorityId = rule.setPriorityId;
+    if (rule.setDepartmentId) outcome.departmentIdOverride = rule.setDepartmentId;
+    if (rule.assignTechnicianId) outcome.assignTechnicianId = rule.assignTechnicianId;
+    rule.addTags.forEach((t) => tagSet.add(t));
+    outcome.appliedRuleNames.push(rule.name);
+  }
+
+  outcome.tags = Array.from(tagSet);
+  return outcome;
+}
 
 function withSla(data: Record<string, unknown> & { createdAt: unknown; status: string }) {
   const sla = computeSla({
@@ -68,6 +114,7 @@ function toTicket(id: string, data: Record<string, any>): Ticket {
     updatedAt: toIso(data.updatedAt),
     sla: withSla(data as any),
     attachments: data.attachments ?? [],
+    tags: data.tags ?? [],
   };
 }
 
@@ -160,16 +207,22 @@ export async function getTicketById(id: string): Promise<Ticket> {
 }
 
 export async function createTicket(input: CreateTicketInput, requester: CurrentUser, files: File[]): Promise<Ticket> {
-  const prioritySnap = await getDoc(doc(db, "priorities", input.priorityId));
+  const rules = await listBusinessRules();
+  const ruleOutcome = applyBusinessRules(input, rules);
+
+  const prioritySnap = await getDoc(doc(db, "priorities", ruleOutcome.priorityId));
   if (!prioritySnap.exists()) throw new DbError("Selected priority does not exist.", 400);
   const priority = prioritySnap.data();
 
-  const categorySnap = await getDoc(doc(db, "ticketCategories", input.categoryId));
+  const categorySnap = await getDoc(doc(db, "ticketCategories", ruleOutcome.categoryId));
   if (!categorySnap.exists()) throw new DbError("Selected category does not exist.", 400);
 
+  // A rule that overrides the category invalidates whatever subcategory the
+  // requester picked under the original category.
+  const subcategoryId = ruleOutcome.categoryOverridden ? null : (input.subcategoryId ?? null);
   let subcategoryName: string | undefined;
-  if (input.subcategoryId) {
-    const subSnap = await getDoc(doc(db, "ticketSubcategories", input.subcategoryId));
+  if (subcategoryId) {
+    const subSnap = await getDoc(doc(db, "ticketSubcategories", subcategoryId));
     subcategoryName = subSnap.data()?.name;
   }
 
@@ -179,20 +232,33 @@ export async function createTicket(input: CreateTicketInput, requester: CurrentU
     if (assetSnap.exists()) asset = { assetTag: assetSnap.data().assetTag, model: assetSnap.data().model ?? null };
   }
 
-  const departmentId = input.departmentId ?? requester.department?.id ?? null;
-  const departmentName = input.departmentId ? undefined : requester.department?.name;
+  const departmentIdInput = ruleOutcome.departmentIdOverride !== undefined ? ruleOutcome.departmentIdOverride : input.departmentId;
+  const departmentId = departmentIdInput ?? requester.department?.id ?? null;
+  const departmentName = departmentIdInput ? undefined : requester.department?.name;
   const locationId = input.locationId ?? requester.location?.id ?? null;
   const locationName = input.locationId ? undefined : requester.location?.name;
 
   let resolvedDepartmentName = departmentName;
-  if (input.departmentId) {
-    const deptSnap = await getDoc(doc(db, "departments", input.departmentId));
+  if (departmentIdInput) {
+    const deptSnap = await getDoc(doc(db, "departments", departmentIdInput));
     resolvedDepartmentName = deptSnap.data()?.name;
   }
   let resolvedLocationName = locationName;
   if (input.locationId) {
     const locSnap = await getDoc(doc(db, "locations", input.locationId));
     resolvedLocationName = locSnap.data()?.name;
+  }
+
+  // A rule can auto-assign a technician, but the ticket-creation security
+  // rule only allows status: 'New' on create - the ticket stays "New" and
+  // pre-assigned rather than jumping to "Open" the way manual assignment does.
+  let assignedTechnician: { id: string; firstName: string; lastName: string; email: string } | null = null;
+  if (ruleOutcome.assignTechnicianId) {
+    const techSnap = await getDoc(doc(db, "users", ruleOutcome.assignTechnicianId));
+    const tech = techSnap.data();
+    if (tech && tech.status === "active" && ["Technician", "Manager", "Administrator"].includes(tech.role)) {
+      assignedTechnician = { id: ruleOutcome.assignTechnicianId, firstName: tech.firstName, lastName: tech.lastName, email: tech.email };
+    }
   }
 
   const now = new Date();
@@ -215,16 +281,19 @@ export async function createTicket(input: CreateTicketInput, requester: CurrentU
     departmentName: resolvedDepartmentName ?? null,
     locationId,
     locationName: resolvedLocationName ?? null,
-    categoryId: input.categoryId,
+    categoryId: ruleOutcome.categoryId,
     categoryName: categorySnap.data().name,
-    subcategoryId: input.subcategoryId ?? null,
+    subcategoryId,
     subcategoryName: subcategoryName ?? null,
-    priorityId: input.priorityId,
+    priorityId: ruleOutcome.priorityId,
     priorityName: priority.name,
     priorityLevel: priority.level,
     priorityColor: priority.colorHex,
     status: "New",
-    assignedTechnicianId: null,
+    assignedTechnicianId: assignedTechnician?.id ?? null,
+    assignedTechnicianFirstName: assignedTechnician?.firstName ?? null,
+    assignedTechnicianLastName: assignedTechnician?.lastName ?? null,
+    assignedTechnicianEmail: assignedTechnician?.email ?? null,
     assetId: input.assetId ?? null,
     assetTag: asset?.assetTag ?? null,
     assetModel: asset?.model ?? null,
@@ -237,6 +306,7 @@ export async function createTicket(input: CreateTicketInput, requester: CurrentU
     closedAt: null,
     reopenedCount: 0,
     attachments: uploaded,
+    tags: ruleOutcome.tags,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -247,7 +317,21 @@ export async function createTicket(input: CreateTicketInput, requester: CurrentU
   }
 
   await addHistory(ticketRef.id, requester.id, `${requester.firstName} ${requester.lastName}`, "created", { newValue: "New" });
+  if (ruleOutcome.appliedRuleNames.length > 0) {
+    await addHistory(ticketRef.id, null, "Automation", "rule_applied", { newValue: ruleOutcome.appliedRuleNames.join(", ") });
+  }
   await recordAudit({ userId: requester.id, action: "ticket_created", entityType: "Ticket", entityId: ticketRef.id, newValue: ticketNumber });
+
+  if (assignedTechnician) {
+    await notifyUser({
+      userId: assignedTechnician.id,
+      type: "ticket_assigned",
+      title: "Ticket assigned to you",
+      message: `${ticketNumber} was automatically assigned to you.`,
+      entityType: "ticket",
+      entityId: ticketRef.id,
+    });
+  }
 
   const staffSnap = await getDocs(query(collection(db, "users"), where("role", "in", ["Technician", "Administrator"]), where("status", "==", "active")));
   await notifyManyUsers(
