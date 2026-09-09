@@ -58,3 +58,21 @@
     @apply bg-border rounded-full;
   }
 }
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-3%, 4%) scale(1.08); }
+}
+
+@keyframes drift-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -3%) scale(1.05); }
+}
+
+.animate-drift {
+  animation: drift 14s ease-in-out infinite;
+}
+
+.animate-drift-reverse {
+  animation: drift-reverse 18s ease-in-out infinite;
+}
