@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/lib/theme";
 import type { CurrentUser } from "@/types";
 
 export function createTestQueryClient() {
@@ -20,11 +21,13 @@ export function renderWithProviders(
 ) {
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <MemoryRouter initialEntries={[route]}>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>{children}</TooltipProvider>
-        </QueryClientProvider>
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[route]}>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>{children}</TooltipProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      </ThemeProvider>
     );
   }
   return render(ui, { wrapper: Wrapper });

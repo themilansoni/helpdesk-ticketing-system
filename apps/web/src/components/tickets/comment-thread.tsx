@@ -83,7 +83,7 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
               key={c.id}
               className={cn(
                 "flex gap-3 rounded-lg border p-3",
-                c.isInternal ? "border-amber-200 bg-amber-50" : "border-border bg-white"
+                c.isInternal ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40" : "border-border bg-card"
               )}
             >
               <Avatar firstName={c.author.firstName} lastName={c.author.lastName} />
@@ -115,7 +115,7 @@ export function CommentThread({ ticketId }: { ticketId: string }) {
         <p className="text-sm text-muted-foreground">No replies yet.</p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-2 rounded-lg border border-border bg-white p-3">
+      <form onSubmit={handleSubmit} className="space-y-2 rounded-lg border border-border bg-card p-3">
         <Textarea
           rows={3}
           placeholder={isInternal ? "Add an internal note (not visible to the requester)..." : "Write a reply..."}

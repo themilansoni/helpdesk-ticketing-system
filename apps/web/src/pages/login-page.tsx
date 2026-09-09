@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
 import { BrandLogo } from "@/components/common/brand-logo";
+import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -197,12 +198,14 @@ export default function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-[3fr_2fr]">
       <BrandPanel companyName={companyName} companyLogo={companyLogo} />
 
-      <div className="relative flex items-center justify-center overflow-hidden bg-slate-50 p-4">
-        <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-slate-300/60" />
+      <div className="relative flex items-center justify-center overflow-hidden bg-background p-4">
+        <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-slate-300/60 dark:text-white/[0.06]" />
         <div
           aria-hidden
           className="pointer-events-none absolute right-0 top-0 h-[32rem] w-[32rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-teal-500/10 blur-3xl"
         />
+
+        <ThemeToggle className="absolute right-4 top-4" />
 
         <div className="relative w-full max-w-sm">
           <div className="mb-6 flex flex-col items-center text-center lg:hidden">
@@ -216,7 +219,7 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white p-6 shadow-xl shadow-slate-900/5">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-slate-900/5">
             <p className="text-lg font-semibold text-foreground">Sign in to your account</p>
             <p className="mt-1 text-sm text-muted-foreground">Welcome back. Enter your work email to continue.</p>
 
@@ -275,7 +278,7 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-border bg-white/70 p-4 text-xs backdrop-blur-sm">
+          <div className="mt-4 rounded-2xl border border-border bg-card/70 p-4 text-xs backdrop-blur-sm">
             <p className="mb-2.5 font-semibold text-muted-foreground">Demo accounts &middot; password Passw0rd!123</p>
             <div className="grid grid-cols-2 gap-1.5">
               {DEMO_ACCOUNTS.map((acc) => (

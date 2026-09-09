@@ -12,19 +12,21 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { ThemeToggle } from "@/components/common/theme-toggle";
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-white px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick} aria-label="Toggle navigation">
           <Menu className="h-5 w-5" />
         </Button>
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
