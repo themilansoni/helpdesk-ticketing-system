@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { KeyRound, PlusCircle, Search, Users as UsersIcon } from "lucide-react";
+import { KeyRound, Pencil, PlusCircle, Search, Users as UsersIcon } from "lucide-react";
 import { usersDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
@@ -46,6 +46,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<CurrentUser | null>(null);
+  const [editTarget, setEditTarget] = useState<CurrentUser | null>(null);
 
   const debouncedSearch = useMemo(() => debounce((v: string) => { setSearch(v); setPage(1); }, 300), []);
 
@@ -115,6 +116,45 @@ export default function UsersPage() {
       setJobTitle("");
     },
     onError: (err) => setCreateError(getErrorMessage(err, "Unable to create user.")),
+  });
+
+  // --- Edit user form state ---
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editJobTitle, setEditJobTitle] = useState("");
+  const [editRoleName, setEditRoleName] = useState<RoleName>("Employee");
+  const [editDepartmentId, setEditDepartmentId] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEdit(u: CurrentUser) {
+    setEditTarget(u);
+    setEditFirstName(u.firstName);
+    setEditLastName(u.lastName);
+    setEditJobTitle(u.jobTitle ?? "");
+    setEditRoleName(u.role.name);
+    setEditDepartmentId(u.department?.id ?? "");
+    setEditError(null);
+  }
+
+  const editUser = useMutation({
+    mutationFn: () =>
+      usersDb.updateUser(
+        editTarget!.id,
+        {
+          firstName: editFirstName,
+          lastName: editLastName,
+          jobTitle: editJobTitle || undefined,
+          roleName: editRoleName,
+          departmentId: editDepartmentId || undefined,
+        },
+        currentUser!.id
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "User updated" });
+      setEditTarget(null);
+    },
+    onError: (err) => setEditError(getErrorMessage(err, "Unable to update user.")),
   });
 
   return (
@@ -195,6 +235,9 @@ export default function UsersPage() {
                           <Button variant="ghost" size="sm">Actions</Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(u)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" /> Edit User
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setResetTarget(u)}>
                             <KeyRound className="mr-2 h-3.5 w-3.5" /> Send Password Reset
                           </DropdownMenuItem>
@@ -274,6 +317,59 @@ export default function UsersPage() {
               onClick={() => createUser.mutate()}
             >
               {createUser.isPending ? "Creating..." : "Create User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Edit {editTarget?.firstName} {editTarget?.lastName}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 space-y-1.5">
+              <Label>Email</Label>
+              <Input value={editTarget?.email ?? ""} disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label>First Name</Label>
+              <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Last Name</Label>
+              <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Job Title</Label>
+              <Input value={editJobTitle} onChange={(e) => setEditJobTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select value={editRoleName} onValueChange={(v) => setEditRoleName(v as RoleName)}>
+                <SelectTrigger aria-label="Role"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label>Department</Label>
+              <Select value={editDepartmentId} onValueChange={setEditDepartmentId}>
+                <SelectTrigger aria-label="Department"><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>
+                  {departments?.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {editError && <p className="text-sm text-destructive">{editError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button disabled={!editFirstName || !editLastName || editUser.isPending} onClick={() => editUser.mutate()}>
+              {editUser.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
