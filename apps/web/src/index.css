@@ -76,3 +76,8 @@
 .animate-drift-reverse {
   animation: drift-reverse 18s ease-in-out infinite;
 }
+
+.bg-dot-grid {
+  background-image: radial-gradient(currentColor 1px, transparent 1px);
+  background-size: 22px 22px;
+}

@@ -62,7 +62,7 @@ describe("LoginPage", () => {
     renderWithProviders(<LoginPage />, { route: "/login" });
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("admin@helpdesk.local"));
+    await user.click(screen.getByText("Administrator"));
 
     expect(screen.getByLabelText(/work email/i)).toHaveValue("admin@helpdesk.local");
     expect(screen.getByLabelText(/password/i)).toHaveValue("Passw0rd!123");
