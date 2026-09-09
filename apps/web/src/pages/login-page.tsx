@@ -8,7 +8,6 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Sparkles,
   ShieldCheck,
   Wrench,
   Users,
@@ -18,6 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
 import { BrandLogo } from "@/components/common/brand-logo";
+import { ProductLogo } from "@/components/common/product-logo";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,7 +125,7 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
       <div className="relative grid flex-1 grid-cols-1 items-center gap-10 px-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white/80 backdrop-blur-sm">
-            <Sparkles className="h-3 w-3" />
+            <ProductLogo className="h-3.5 w-3.5" />
             HelpDesk Pro
           </span>
           <h2 className="text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl">
@@ -159,7 +159,10 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
 
       <div className="relative flex items-center justify-between border-t border-white/10 px-10 py-4">
         <LiveClock />
-        <span className="text-xs text-white/50">HelpDesk Pro v1.0.0</span>
+        <span className="flex items-center gap-1.5 text-xs text-white/50">
+          <ProductLogo className="h-3.5 w-3.5" />
+          HelpDesk Pro v1.0.0
+        </span>
       </div>
     </div>
   );

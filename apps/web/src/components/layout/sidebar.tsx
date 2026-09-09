@@ -22,6 +22,7 @@ import {
 import { NAV_BY_ROLE, type RoleName } from "@helpdesk/shared";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
 import { BrandLogo } from "@/components/common/brand-logo";
+import { ProductLogo } from "@/components/common/product-logo";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, typeof LayoutDashboard> = {
@@ -96,7 +97,10 @@ export function Sidebar({ role, open, onNavigate }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="border-t border-border p-3 text-[11px] text-muted-foreground">HelpDesk Pro v1.0.0</div>
+      <div className="flex items-center gap-1.5 border-t border-border p-3 text-[11px] text-muted-foreground">
+        <ProductLogo className="h-3.5 w-3.5" />
+        HelpDesk Pro v1.0.0
+      </div>
     </aside>
   );
 }
