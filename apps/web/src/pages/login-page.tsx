@@ -93,7 +93,7 @@ function ProductPreviewCard() {
   );
 }
 
-function BrandPanel({ companyName, companyLogo }: { companyName: string; companyLogo: string }) {
+function BrandPanel({ companyName }: { companyName: string }) {
   return (
     <div className="relative hidden flex-col overflow-hidden bg-gradient-to-br from-teal-950 via-cyan-950 to-slate-900 text-white lg:flex">
       <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 -z-10 text-white/[0.06]" />
@@ -110,13 +110,11 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
         className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
       />
 
-      <div className="flex items-center justify-between border-b border-slate-900/5 bg-white px-8 py-4 shadow-sm">
-        <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-11" iconClassName="h-5 w-5" className="bg-teal-600 text-white" />
-
-        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+      <div className="relative flex items-center justify-end px-10 pt-8">
+        <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
           </span>
           All systems operational
         </div>
@@ -199,7 +197,7 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[3fr_2fr]">
-      <BrandPanel companyName={companyName} companyLogo={companyLogo} />
+      <BrandPanel companyName={companyName} />
 
       <div className="relative flex items-center justify-center overflow-hidden bg-background p-4">
         <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-slate-300/60 dark:text-white/[0.06]" />
@@ -212,7 +210,7 @@ export default function LoginPage() {
 
         <div className="relative w-full max-w-sm">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-slate-900/5">
-            <div className="mb-6 flex flex-col items-center text-center lg:hidden">
+            <div className="mb-6 flex flex-col items-center text-center">
               <BrandLogo
                 companyName={companyName}
                 companyLogo={companyLogo}
