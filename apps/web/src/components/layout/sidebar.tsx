@@ -109,7 +109,12 @@ export function Sidebar({ role, open, collapsed, onNavigate, onToggleCollapsed }
         collapsed ? "lg:w-[4.5rem]" : "lg:w-64"
       )}
     >
-      <div className={cn("flex h-14 items-center gap-2.5 overflow-hidden border-b border-border px-4", collapsed && "lg:justify-center lg:px-0")}>
+      <div
+        className={cn(
+          "flex h-14 items-center gap-2.5 overflow-hidden border-b border-border px-4",
+          collapsed && "lg:h-auto lg:flex-col lg:gap-2 lg:px-2 lg:py-3"
+        )}
+      >
         <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-8" className="shrink-0" />
         <div className={cn("min-w-0 flex-1 leading-tight", collapsed && "lg:hidden")}>
           <p className="truncate text-sm font-semibold text-foreground" title={companyName}>
@@ -117,6 +122,15 @@ export function Sidebar({ role, open, collapsed, onNavigate, onToggleCollapsed }
           </p>
           <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">IT Service Management</p>
         </div>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:flex"
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-3 scrollbar-thin">
@@ -176,20 +190,9 @@ export function Sidebar({ role, open, collapsed, onNavigate, onToggleCollapsed }
         })}
       </nav>
 
-      <div className={cn("flex items-center gap-1.5 border-t border-border p-3 text-[11px] text-muted-foreground", collapsed ? "lg:justify-center" : "justify-between")}>
-        <div className={cn("flex min-w-0 items-center gap-1.5", collapsed && "lg:hidden")}>
-          <ProductLogo className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">HelpDesk Pro v1.0.0</span>
-        </div>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground lg:flex"
-        >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
+      <div className={cn("flex items-center gap-1.5 border-t border-border p-3 text-[11px] text-muted-foreground", collapsed && "lg:justify-center")}>
+        <ProductLogo className="h-3.5 w-3.5 shrink-0" />
+        <span className={cn("truncate", collapsed && "lg:hidden")}>HelpDesk Pro v1.0.0</span>
       </div>
     </aside>
   );
