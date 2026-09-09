@@ -7,6 +7,12 @@ import { renderWithProviders } from "./test-utils";
 
 const mockLogin = vi.fn();
 
+vi.mock("@/lib/db", () => ({
+  referenceDb: {
+    getSystemSettings: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 vi.mock("@/lib/auth", async () => {
   const mod = await import("./mocks/auth-mock");
   return {
