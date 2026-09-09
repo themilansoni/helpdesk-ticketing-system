@@ -65,17 +65,62 @@ export const createAssetSchema = z.object({
   assetTag: z.string().min(1),
   serialNumber: z.string().optional().nullable(),
   assetTypeId: z.string().min(1),
-  manufacturer: z.string().optional().nullable(),
-  model: z.string().optional().nullable(),
+  manufacturerId: z.string().optional().nullable(),
+  assetModelId: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
   warrantyExpiry: z.string().optional().nullable(),
   status: z.enum(["available", "assigned", "in_repair", "retired", "lost"]).default("available"),
-  assignedUserId: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
   locationId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 export type CreateAssetInput = z.infer<typeof createAssetSchema>;
+
+export const createManufacturerSchema = z.object({
+  name: z.string().min(1),
+  supportUrl: z.string().optional().nullable(),
+  supportPhone: z.string().optional().nullable(),
+});
+export type CreateManufacturerInput = z.infer<typeof createManufacturerSchema>;
+
+export const createAssetModelSchema = z.object({
+  name: z.string().min(1),
+  manufacturerId: z.string().optional().nullable(),
+  assetTypeId: z.string().optional().nullable(),
+});
+export type CreateAssetModelInput = z.infer<typeof createAssetModelSchema>;
+
+export const createConsumableSchema = z.object({
+  name: z.string().min(1),
+  manufacturer: z.string().optional().nullable(),
+  modelNumber: z.string().optional().nullable(),
+  quantityTotal: z.number().int().min(0),
+  minQuantity: z.number().int().min(0).default(0),
+  locationId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type CreateConsumableInput = z.infer<typeof createConsumableSchema>;
+
+export const createAccessorySchema = z.object({
+  name: z.string().min(1),
+  manufacturer: z.string().optional().nullable(),
+  modelNumber: z.string().optional().nullable(),
+  quantityTotal: z.number().int().min(0),
+  locationId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type CreateAccessoryInput = z.infer<typeof createAccessorySchema>;
+
+export const createLicenseSchema = z.object({
+  name: z.string().min(1),
+  manufacturer: z.string().optional().nullable(),
+  licenseKey: z.string().optional().nullable(),
+  seatsTotal: z.number().int().min(1),
+  purchaseDate: z.string().optional().nullable(),
+  expirationDate: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type CreateLicenseInput = z.infer<typeof createLicenseSchema>;
 
 export const createKnowledgeArticleSchema = z.object({
   title: z.string().min(3).max(200),

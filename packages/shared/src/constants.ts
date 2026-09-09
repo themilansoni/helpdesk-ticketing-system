@@ -55,6 +55,8 @@ export const NOTIFICATION_TYPES = [
   "ticket_reopened",
   "sla_at_risk",
   "sla_breached",
+  "asset_checked_out",
+  "asset_checked_in",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

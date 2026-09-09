@@ -10,6 +10,9 @@ import TicketDetailPage from "@/pages/tickets/ticket-detail-page";
 import KnowledgeBaseListPage from "@/pages/knowledge-base-list-page";
 import KnowledgeArticlePage from "@/pages/knowledge-article-page";
 import AssetsPage from "@/pages/assets-page";
+import ConsumablesPage from "@/pages/consumables-page";
+import AccessoriesPage from "@/pages/accessories-page";
+import LicensesPage from "@/pages/licenses-page";
 import NotificationsPage from "@/pages/notifications-page";
 import ProfilePage from "@/pages/profile-page";
 import ReportsPage from "@/pages/reports-page";
@@ -42,6 +45,30 @@ export default function App() {
           <Route path="/knowledge-base/:idOrSlug" element={<KnowledgeArticlePage />} />
 
           <Route path="/assets" element={<AssetsPage />} />
+          <Route
+            path="/consumables"
+            element={
+              <RequirePermission permission="ASSET_VIEW">
+                <ConsumablesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/accessories"
+            element={
+              <RequirePermission permission="ASSET_VIEW">
+                <AccessoriesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/licenses"
+            element={
+              <RequirePermission permission="ASSET_VIEW">
+                <LicensesPage />
+              </RequirePermission>
+            }
+          />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 

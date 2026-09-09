@@ -79,12 +79,28 @@ export interface AssetType {
   name: string;
 }
 
+export interface Manufacturer {
+  id: string;
+  name: string;
+  supportUrl: string | null;
+  supportPhone: string | null;
+}
+
+export interface AssetModel {
+  id: string;
+  name: string;
+  manufacturer: { id: string; name: string } | null;
+  assetType: { id: string; name: string } | null;
+}
+
 export interface Asset {
   id: string;
   assetTag: string;
   serialNumber: string | null;
   assetType: AssetType;
+  manufacturerId: string | null;
   manufacturer: string | null;
+  assetModelId: string | null;
   model: string | null;
   purchaseDate: string | null;
   warrantyExpiry: string | null;
@@ -94,6 +110,80 @@ export interface Asset {
   location: { id: string; name: string } | null;
   notes: string | null;
   createdAt: string;
+}
+
+export interface AssetHistoryEntry {
+  id: string;
+  assetId: string;
+  userId: string | null;
+  user: { firstName: string; lastName: string } | null;
+  action: string;
+  assignedTo: { id: string; firstName: string; lastName: string } | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface Consumable {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  modelNumber: string | null;
+  quantityTotal: number;
+  quantityRemaining: number;
+  minQuantity: number;
+  location: { id: string; name: string } | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface ConsumableCheckout {
+  id: string;
+  consumableId: string;
+  user: { id: string; firstName: string; lastName: string };
+  quantity: number;
+  createdAt: string;
+}
+
+export interface Accessory {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  modelNumber: string | null;
+  quantityTotal: number;
+  quantityRemaining: number;
+  location: { id: string; name: string } | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface AccessoryCheckout {
+  id: string;
+  accessoryId: string;
+  user: { id: string; firstName: string; lastName: string };
+  quantity: number;
+  checkedOutAt: string;
+  checkedInAt: string | null;
+}
+
+export interface License {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  licenseKey: string | null;
+  seatsTotal: number;
+  seatsUsed: number;
+  purchaseDate: string | null;
+  expirationDate: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface LicenseCheckout {
+  id: string;
+  licenseId: string;
+  user: { id: string; firstName: string; lastName: string };
+  checkedOutAt: string;
+  checkedInAt: string | null;
 }
 
 export interface SlaInfo {

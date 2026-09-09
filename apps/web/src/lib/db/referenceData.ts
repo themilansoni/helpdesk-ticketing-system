@@ -13,7 +13,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DbError } from "./helpers";
-import type { AssetType, Department, KnowledgeCategory, Location, Priority, TicketCategory, TicketSubcategory } from "@/types";
+import type { CreateAssetModelInput, CreateManufacturerInput } from "@helpdesk/shared";
+import type { AssetModel, AssetType, Department, KnowledgeCategory, Location, Manufacturer, Priority, TicketCategory, TicketSubcategory } from "@/types";
 
 export async function listDepartments(): Promise<Department[]> {
   const snap = await getDocs(query(collection(db, "departments"), orderBy("name")));
@@ -117,6 +118,76 @@ export async function updateSlaPolicy(priorityId: string, policy: { firstRespons
 export async function listAssetTypes(): Promise<AssetType[]> {
   const snap = await getDocs(query(collection(db, "assetTypes"), orderBy("name")));
   return snap.docs.map((d) => ({ id: d.id, name: d.data().name }));
+}
+
+export async function listManufacturers(): Promise<Manufacturer[]> {
+  const snap = await getDocs(query(collection(db, "manufacturers"), orderBy("name")));
+  return snap.docs.map((d) => ({
+    id: d.id,
+    name: d.data().name,
+    supportUrl: d.data().supportUrl ?? null,
+    supportPhone: d.data().supportPhone ?? null,
+  }));
+}
+
+export async function createManufacturer(input: CreateManufacturerInput) {
+  const ref = await addDoc(collection(db, "manufacturers"), {
+    name: input.name,
+    supportUrl: input.supportUrl ?? null,
+    supportPhone: input.supportPhone ?? null,
+  });
+  return ref.id;
+}
+
+export async function deleteManufacturer(id: string) {
+  const [assetsUsingIt, modelsUsingIt] = await Promise.all([
+    getDocs(query(collection(db, "assets"), where("manufacturerId", "==", id))),
+    getDocs(query(collection(db, "assetModels"), where("manufacturerId", "==", id))),
+  ]);
+  if (!assetsUsingIt.empty || !modelsUsingIt.empty) {
+    throw new DbError("Cannot delete a manufacturer that is still used by assets or models.", 409);
+  }
+  await deleteDoc(doc(db, "manufacturers", id));
+}
+
+export async function listAssetModels(): Promise<AssetModel[]> {
+  const snap = await getDocs(query(collection(db, "assetModels"), orderBy("name")));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      name: data.name,
+      manufacturer: data.manufacturerId ? { id: data.manufacturerId, name: data.manufacturerName } : null,
+      assetType: data.assetTypeId ? { id: data.assetTypeId, name: data.assetTypeName } : null,
+    };
+  });
+}
+
+export async function createAssetModel(input: CreateAssetModelInput) {
+  let manufacturerName: string | undefined;
+  if (input.manufacturerId) {
+    const mSnap = await getDoc(doc(db, "manufacturers", input.manufacturerId));
+    manufacturerName = mSnap.data()?.name;
+  }
+  let assetTypeName: string | undefined;
+  if (input.assetTypeId) {
+    const tSnap = await getDoc(doc(db, "assetTypes", input.assetTypeId));
+    assetTypeName = tSnap.data()?.name;
+  }
+  const ref = await addDoc(collection(db, "assetModels"), {
+    name: input.name,
+    manufacturerId: input.manufacturerId ?? null,
+    manufacturerName: manufacturerName ?? null,
+    assetTypeId: input.assetTypeId ?? null,
+    assetTypeName: assetTypeName ?? null,
+  });
+  return ref.id;
+}
+
+export async function deleteAssetModel(id: string) {
+  const assetsUsingIt = await getDocs(query(collection(db, "assets"), where("assetModelId", "==", id)));
+  if (!assetsUsingIt.empty) throw new DbError("Cannot delete a model that is still used by assets.", 409);
+  await deleteDoc(doc(db, "assetModels", id));
 }
 
 export async function listKnowledgeCategories(): Promise<KnowledgeCategory[]> {

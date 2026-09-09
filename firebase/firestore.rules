@@ -66,6 +66,14 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if isAdmin();
     }
+    match /manufacturers/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /assetModels/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
     match /knowledgeCategories/{id} {
       allow read: if signedIn();
       allow write: if isAdmin();
@@ -162,6 +170,43 @@ service cloud.firestore {
     match /assets/{id} {
       allow read: if isActive();
       allow write: if isOpsManager();
+    }
+
+    match /assetHistory/{id} {
+      allow read: if isActive();
+      allow create: if isOpsManager();
+      allow update, delete: if false;
+    }
+
+    // ---- Consumables & accessories (quantity-tracked, non-serialized) ----
+    match /consumables/{id} {
+      allow read: if isActive();
+      allow write: if isOpsManager();
+    }
+    match /consumableCheckouts/{id} {
+      allow read: if isActive();
+      allow create: if isOpsManager();
+      allow update, delete: if false;
+    }
+    match /accessories/{id} {
+      allow read: if isActive();
+      allow write: if isOpsManager();
+    }
+    match /accessoryCheckouts/{id} {
+      allow read: if isActive();
+      allow create, update: if isOpsManager();
+      allow delete: if false;
+    }
+
+    // ---- Software licenses ----
+    match /licenses/{id} {
+      allow read: if isActive();
+      allow write: if isOpsManager();
+    }
+    match /licenseCheckouts/{id} {
+      allow read: if isActive();
+      allow create, update: if isOpsManager();
+      allow delete: if false;
     }
 
     // ---- Knowledge base ----

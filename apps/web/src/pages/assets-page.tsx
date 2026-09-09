@@ -1,26 +1,30 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Laptop, PlusCircle, Search } from "lucide-react";
+import { History, Laptop, LayoutGrid, LogIn, LogOut, PlusCircle, Search } from "lucide-react";
 import { assetsDb, usersDb } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
+import { AssetHistoryTimeline } from "@/components/assets/asset-history-timeline";
+import { CatalogManagerDialog } from "@/components/assets/catalog-manager-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { useAssetTypes, useDepartments, useLocations } from "@/hooks/use-reference-data";
+import { useAssetTypes, useDepartments, useLocations, useManufacturers, useAssetModels } from "@/hooks/use-reference-data";
 import { debounce, formatDate } from "@/lib/utils";
 import type { Asset } from "@/types";
 
 const ALL = "__all__";
+const NONE = "__none__";
 const PAGE_SIZE = 12;
 const STATUS_TONE: Record<string, NonNullable<BadgeProps["variant"]>> = {
   available: "success",
@@ -33,6 +37,7 @@ const STATUS_TONE: Record<string, NonNullable<BadgeProps["variant"]>> = {
 export default function AssetsPage() {
   const { can, user } = useAuth();
   const canManage = can("ASSET_MANAGE");
+  const isAdmin = user?.role.name === "Administrator";
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -40,12 +45,18 @@ export default function AssetsPage() {
   const [status, setStatus] = useState(ALL);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
-  const [assignAsset, setAssignAsset] = useState<Asset | null>(null);
-  const [assignUserId, setAssignUserId] = useState("");
+  const [checkoutAsset, setCheckoutAsset] = useState<Asset | null>(null);
+  const [checkoutUserId, setCheckoutUserId] = useState("");
+  const [checkoutNote, setCheckoutNote] = useState("");
+  const [checkinAsset, setCheckinAsset] = useState<Asset | null>(null);
+  const [historyAsset, setHistoryAsset] = useState<Asset | null>(null);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   const { data: assetTypes } = useAssetTypes();
   const { data: departments } = useDepartments();
   const { data: locations } = useLocations();
+  const { data: manufacturers } = useManufacturers();
+  const { data: assetModels } = useAssetModels();
   const { data: allUsers } = useQuery({
     queryKey: ["users", "all-for-assign"],
     queryFn: () => usersDb.listUsers({ page: 1, pageSize: 200 }),
@@ -77,26 +88,31 @@ export default function AssetsPage() {
   const [assetTag, setAssetTag] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [assetTypeId, setAssetTypeId] = useState("");
-  const [manufacturer, setManufacturer] = useState("");
-  const [model, setModel] = useState("");
+  const [manufacturerId, setManufacturerId] = useState("");
+  const [assetModelId, setAssetModelId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [locationId, setLocationId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const createAsset = useMutation({
+  const modelOptions = useMemo(
+    () => (manufacturerId ? (assetModels ?? []).filter((m) => m.manufacturer?.id === manufacturerId) : assetModels ?? []),
+    [assetModels, manufacturerId]
+  );
+
+  const createAssetMutation = useMutation({
     mutationFn: () =>
       assetsDb.createAsset(
         {
           assetTag,
           serialNumber: serialNumber || undefined,
           assetTypeId,
-          manufacturer: manufacturer || undefined,
-          model: model || undefined,
+          manufacturerId: manufacturerId || undefined,
+          assetModelId: assetModelId || undefined,
           departmentId: departmentId || undefined,
           locationId: locationId || undefined,
           status: "available",
         },
-        user!.id
+        { id: user!.id, firstName: user!.firstName, lastName: user!.lastName }
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -105,18 +121,40 @@ export default function AssetsPage() {
       setAssetTag("");
       setSerialNumber("");
       setAssetTypeId("");
-      setManufacturer("");
-      setModel("");
+      setManufacturerId("");
+      setAssetModelId("");
     },
     onError: (err) => setError(getErrorMessage(err, "Unable to create asset.")),
   });
 
-  const assignMutation = useMutation({
-    mutationFn: () => assetsDb.assignAsset(assignAsset!.id, assignUserId || null, user!.id),
+  const checkoutMutation = useMutation({
+    mutationFn: () =>
+      assetsDb.checkoutAsset(
+        checkoutAsset!.id,
+        checkoutUserId,
+        { id: user!.id, firstName: user!.firstName, lastName: user!.lastName },
+        checkoutNote || undefined
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast({ title: "Asset assignment updated" });
-      setAssignAsset(null);
+      toast({ title: "Asset checked out" });
+      setCheckoutAsset(null);
+      setCheckoutUserId("");
+      setCheckoutNote("");
+    },
+    onError: (err) => setError(getErrorMessage(err, "Unable to check out asset.")),
+  });
+
+  const checkinMutation = useMutation({
+    mutationFn: () => assetsDb.checkinAsset(checkinAsset!.id, { id: user!.id, firstName: user!.firstName, lastName: user!.lastName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      toast({ title: "Asset checked in" });
+      setCheckinAsset(null);
+    },
+    onError: (err) => {
+      toast({ title: "Unable to check in", description: getErrorMessage(err) });
+      setCheckinAsset(null);
     },
   });
 
@@ -124,12 +162,19 @@ export default function AssetsPage() {
     <div>
       <PageHeader
         title={user?.role.name === "Employee" ? "My Assets" : "Assets"}
-        description="Track IT hardware and equipment across the organization."
+        description="Track IT hardware, checkouts, and full assignment history."
         actions={
           canManage ? (
-            <Button onClick={() => setCreateOpen(true)}>
-              <PlusCircle className="h-4 w-4" /> Add Asset
-            </Button>
+            <div className="flex gap-2">
+              {isAdmin && (
+                <Button variant="outline" onClick={() => setCatalogOpen(true)}>
+                  <LayoutGrid className="h-4 w-4" /> Catalog
+                </Button>
+              )}
+              <Button onClick={() => setCreateOpen(true)}>
+                <PlusCircle className="h-4 w-4" /> Add Asset
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -171,7 +216,7 @@ export default function AssetsPage() {
                   <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Warranty</TableHead>
-                  {canManage && <TableHead />}
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -188,20 +233,24 @@ export default function AssetsPage() {
                       <Badge variant={STATUS_TONE[a.status] ?? "outline"}>{a.status.replace("_", " ")}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(a.warrantyExpiry)}</TableCell>
-                    {canManage && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setAssignAsset(a);
-                            setAssignUserId(a.assignedUser?.id ?? "");
-                          }}
-                        >
-                          Assign
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button size="icon" variant="ghost" title="History" onClick={() => setHistoryAsset(a)}>
+                          <History className="h-4 w-4" />
                         </Button>
-                      </TableCell>
-                    )}
+                        {canManage && (
+                          a.assignedUser ? (
+                            <Button size="sm" variant="ghost" onClick={() => setCheckinAsset(a)}>
+                              <LogIn className="h-4 w-4" /> Check-in
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => setCheckoutAsset(a)}>
+                              <LogOut className="h-4 w-4" /> Checkout
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -236,11 +285,27 @@ export default function AssetsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Manufacturer</Label>
-              <Input value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} />
+              <Select value={manufacturerId || NONE} onValueChange={(v) => { setManufacturerId(v === NONE ? "" : v); setAssetModelId(""); }}>
+                <SelectTrigger aria-label="Manufacturer"><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>None</SelectItem>
+                  {manufacturers?.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="col-span-2 space-y-1.5">
               <Label>Model</Label>
-              <Input value={model} onChange={(e) => setModel(e.target.value)} />
+              <Select value={assetModelId || NONE} onValueChange={(v) => setAssetModelId(v === NONE ? "" : v)}>
+                <SelectTrigger aria-label="Model"><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>None</SelectItem>
+                  {modelOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>
@@ -253,7 +318,7 @@ export default function AssetsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-2 space-y-1.5">
+            <div className="space-y-1.5">
               <Label>Location</Label>
               <Select value={locationId} onValueChange={setLocationId}>
                 <SelectTrigger aria-label="Location"><SelectValue placeholder="Select location" /></SelectTrigger>
@@ -268,33 +333,66 @@ export default function AssetsPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button disabled={!assetTag || !assetTypeId || createAsset.isPending} onClick={() => createAsset.mutate()}>
-              {createAsset.isPending ? "Saving..." : "Save Asset"}
+            <Button disabled={!assetTag || !assetTypeId || createAssetMutation.isPending} onClick={() => createAssetMutation.mutate()}>
+              {createAssetMutation.isPending ? "Saving..." : "Save Asset"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!assignAsset} onOpenChange={(v) => !v && setAssignAsset(null)}>
+      <Dialog open={!!checkoutAsset} onOpenChange={(v) => !v && setCheckoutAsset(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Assign {assignAsset?.assetTag}</DialogTitle></DialogHeader>
-          <Select value={assignUserId || ALL} onValueChange={(v) => setAssignUserId(v === ALL ? "" : v)}>
-            <SelectTrigger aria-label="Assign to"><SelectValue placeholder="Select employee" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Unassign</SelectItem>
-              {allUsers?.data.map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.role.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DialogHeader><DialogTitle>Check out {checkoutAsset?.assetTag}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Employee</Label>
+              <Select value={checkoutUserId} onValueChange={setCheckoutUserId}>
+                <SelectTrigger aria-label="Check out to"><SelectValue placeholder="Select employee" /></SelectTrigger>
+                <SelectContent>
+                  {allUsers?.data.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} · {u.role.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Note (optional)</Label>
+              <Textarea value={checkoutNote} onChange={(e) => setCheckoutNote(e.target.value)} placeholder="e.g. Condition, accessories included..." />
+            </div>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignAsset(null)}>Cancel</Button>
-            <Button disabled={assignMutation.isPending} onClick={() => assignMutation.mutate()}>
-              {assignMutation.isPending ? "Saving..." : "Save"}
+            <Button variant="outline" onClick={() => setCheckoutAsset(null)}>Cancel</Button>
+            <Button disabled={!checkoutUserId || checkoutMutation.isPending} onClick={() => checkoutMutation.mutate()}>
+              {checkoutMutation.isPending ? "Saving..." : "Check Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!checkinAsset} onOpenChange={(v) => !v && setCheckinAsset(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Check in {checkinAsset?.assetTag}?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will return the asset from {checkinAsset?.assignedUser?.firstName} {checkinAsset?.assignedUser?.lastName} and mark it available.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckinAsset(null)}>Cancel</Button>
+            <Button disabled={checkinMutation.isPending} onClick={() => checkinMutation.mutate()}>
+              {checkinMutation.isPending ? "Saving..." : "Check In"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyAsset} onOpenChange={(v) => !v && setHistoryAsset(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>History · {historyAsset?.assetTag}</DialogTitle></DialogHeader>
+          {historyAsset && <AssetHistoryTimeline assetId={historyAsset.id} />}
+        </DialogContent>
+      </Dialog>
+
+      <CatalogManagerDialog open={catalogOpen} onOpenChange={setCatalogOpen} />
     </div>
   );
 }

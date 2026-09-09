@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { referenceDb, assetsDb } from "@/lib/db";
+import { referenceDb, assetsDb, consumablesDb, accessoriesDb, licensesDb } from "@/lib/db";
 
 export function useDepartments() {
   return useQuery({ queryKey: ["departments"], queryFn: () => referenceDb.listDepartments() });
@@ -19,6 +19,26 @@ export function usePriorities() {
 
 export function useAssetTypes() {
   return useQuery({ queryKey: ["asset-types"], queryFn: () => referenceDb.listAssetTypes() });
+}
+
+export function useManufacturers() {
+  return useQuery({ queryKey: ["manufacturers"], queryFn: () => referenceDb.listManufacturers() });
+}
+
+export function useAssetModels() {
+  return useQuery({ queryKey: ["asset-models"], queryFn: () => referenceDb.listAssetModels() });
+}
+
+export function useConsumables() {
+  return useQuery({ queryKey: ["consumables"], queryFn: () => consumablesDb.listConsumables() });
+}
+
+export function useAccessories() {
+  return useQuery({ queryKey: ["accessories"], queryFn: () => accessoriesDb.listAccessories() });
+}
+
+export function useLicenses() {
+  return useQuery({ queryKey: ["licenses"], queryFn: () => licensesDb.listLicenses() });
 }
 
 export function useTechnicians() {

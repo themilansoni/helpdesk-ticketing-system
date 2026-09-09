@@ -13,6 +13,7 @@ import type { AppNotification } from "@/types";
 function entityHref(n: AppNotification): string | null {
   if (n.entityType === "ticket" && n.entityId) return `/tickets/${n.entityId}`;
   if (n.entityType === "knowledge_article" && n.entityId) return `/knowledge-base/${n.entityId}`;
+  if (n.entityType === "asset") return "/assets";
   return null;
 }
 
