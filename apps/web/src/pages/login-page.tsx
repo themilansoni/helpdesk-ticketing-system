@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
-  LifeBuoy,
   Ticket,
   Gauge,
   BookOpen,
@@ -18,6 +17,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
 import { useCompanyBranding } from "@/hooks/use-reference-data";
+import { BrandLogo } from "@/components/common/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,33 +53,6 @@ function LiveClock() {
   );
 }
 
-function BrandLogo({
-  companyName,
-  companyLogo,
-  size = "h-9 w-9",
-  iconSize = "h-5 w-5",
-}: {
-  companyName: string;
-  companyLogo: string;
-  size?: string;
-  iconSize?: string;
-}) {
-  if (companyLogo) {
-    return (
-      <img
-        src={companyLogo}
-        alt={companyName}
-        className={`${size} rounded-xl bg-white/10 object-contain p-1 ring-1 ring-white/20`}
-      />
-    );
-  }
-  return (
-    <div className={`flex ${size} items-center justify-center rounded-xl bg-gradient-to-br from-white/25 to-white/5 ring-1 ring-white/20`}>
-      <LifeBuoy className={iconSize} />
-    </div>
-  );
-}
-
 function BrandPanel({ companyName, companyLogo }: { companyName: string; companyLogo: string }) {
   return (
     <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-950 via-primary to-violet-900 p-10 text-white lg:flex">
@@ -99,7 +72,7 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
 
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <BrandLogo companyName={companyName} companyLogo={companyLogo} />
+          <BrandLogo companyName={companyName} companyLogo={companyLogo} className="h-9 w-9" iconClassName="h-5 w-5" tone="dark" />
           <span className="text-sm font-semibold tracking-tight">{companyName}</span>
         </div>
 
@@ -196,8 +169,8 @@ export default function LoginPage() {
             <BrandLogo
               companyName={companyName}
               companyLogo={companyLogo}
-              size="mb-3 h-12 w-12 shadow-md"
-              iconSize="h-6 w-6"
+              className="mb-3 h-12 w-12 rounded-xl shadow-md"
+              iconClassName="h-6 w-6"
             />
             <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
             <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>
