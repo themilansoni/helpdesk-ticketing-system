@@ -65,9 +65,9 @@ function TypewriterHeadline() {
   }, [chars]);
 
   return (
-    <h2 className="text-4xl font-bold leading-[1.1] tracking-tight text-slate-950 xl:text-5xl">
+    <h2 className="text-4xl font-bold leading-[1.1] tracking-tight text-white xl:text-5xl">
       {HEADLINE.slice(0, chars)}
-      <span className="ml-0.5 inline-block h-[0.85em] w-[3px] translate-y-[0.12em] animate-pulse bg-gradient-to-b from-teal-500 to-cyan-500 align-middle" />
+      <span className="ml-0.5 inline-block h-[0.85em] w-[3px] translate-y-[0.12em] animate-pulse bg-gradient-to-b from-teal-300 to-cyan-300 align-middle" />
     </h2>
   );
 }
@@ -81,10 +81,10 @@ function LiveTicker() {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-500">
+    <div className="flex items-center gap-2 text-xs text-white/60">
       <span className="relative flex h-1.5 w-1.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-500 opacity-75" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-300 opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-teal-300" />
       </span>
       <span key={index} className="animate-fade-in-up">
         {LIVE_TIPS[index]}
@@ -102,9 +102,9 @@ function LiveClock() {
   }, []);
 
   return (
-    <div className="font-mono text-sm text-slate-500">
+    <div className="font-mono text-sm text-white/80">
       {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-      <span className="mx-1.5 text-slate-300">&middot;</span>
+      <span className="mx-1.5 text-white/40">&middot;</span>
       {now.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
     </div>
   );
@@ -123,16 +123,16 @@ function ProductPreviewCard() {
   }, []);
 
   return (
-    <div className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/5">
+    <div className="relative rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/20 backdrop-blur-sm">
       <div className="mb-3 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-slate-200" />
-        <span className="h-2 w-2 rounded-full bg-slate-200" />
-        <span className="h-2 w-2 rounded-full bg-slate-200" />
-        <span className="ml-1.5 text-[11px] font-medium text-slate-400">Ticket Dashboard</span>
-        <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="ml-1.5 text-[11px] font-medium text-white/40">Ticket Dashboard</span>
+        <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </span>
           Live
         </span>
@@ -143,14 +143,14 @@ function ProductPreviewCard() {
             key={t.id}
             className={cn(
               "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors duration-700",
-              i === activeRow ? "bg-teal-50 ring-1 ring-teal-200" : "bg-slate-50"
+              i === activeRow ? "bg-white/[0.1] ring-1 ring-teal-300/30" : "bg-white/[0.05]"
             )}
           >
             <div className="flex min-w-0 items-center gap-2">
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.tone}`} />
-              <span className="truncate text-xs text-slate-700">{t.title}</span>
+              <span className="truncate text-xs text-white/80">{t.title}</span>
             </div>
-            <span className="shrink-0 font-mono text-[10px] text-slate-400">{t.id}</span>
+            <span className="shrink-0 font-mono text-[10px] text-white/35">{t.id}</span>
           </div>
         ))}
       </div>
@@ -158,7 +158,7 @@ function ProductPreviewCard() {
         {bars.map((h, i) => (
           <div
             key={i}
-            className="flex-1 rounded-t-sm bg-gradient-to-t from-teal-500 to-cyan-400 transition-all duration-700 ease-out"
+            className="flex-1 rounded-t-sm bg-gradient-to-t from-teal-400/70 to-cyan-300/70 transition-all duration-700 ease-out"
             style={{ height: `${h * 0.3}px` }}
           />
         ))}
@@ -169,15 +169,27 @@ function ProductPreviewCard() {
 
 function BrandPanel({ companyName }: { companyName: string }) {
   return (
-    <div className="relative hidden flex-col overflow-hidden bg-white text-slate-950 lg:flex">
-      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 -z-10 text-slate-200" />
+    <div className="relative hidden flex-col overflow-hidden bg-gradient-to-br from-teal-950 via-cyan-950 to-slate-900 text-white lg:flex">
+      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 -z-10 text-white/[0.06]" />
+      <div
+        aria-hidden
+        className="animate-drift pointer-events-none absolute -left-24 -top-24 -z-10 h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="animate-drift-reverse pointer-events-none absolute -bottom-32 -right-16 -z-10 h-96 w-96 rounded-full bg-sky-400/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
+      />
 
       <div className="relative flex items-center justify-between px-10 pt-8">
-        <span className="flex items-center gap-2 text-sm font-semibold tracking-tight text-slate-900">
-          <ProductLogo className="h-5 w-5 text-teal-600" />
+        <span className="flex items-center gap-2 text-sm font-semibold tracking-tight text-white">
+          <ProductLogo className="h-5 w-5" />
           HelpDesk Pro
         </span>
-        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
+        <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
@@ -189,7 +201,7 @@ function BrandPanel({ companyName }: { companyName: string }) {
       <div className="relative grid flex-1 grid-cols-1 items-center gap-10 px-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <TypewriterHeadline />
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-500">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70">
             {companyName}'s internal help desk for tracking tickets, managing assets, and keeping SLAs on track — all
             in one place.
           </p>
@@ -198,12 +210,12 @@ function BrandPanel({ companyName }: { companyName: string }) {
             {FEATURES.map((f) => (
               <div
                 key={f.label}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-2 pr-3.5"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] py-1.5 pl-2 pr-3.5 backdrop-blur-sm"
               >
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white">
-                  <f.icon className="h-3.5 w-3.5 text-teal-600" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                  <f.icon className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-xs font-medium text-slate-700">{f.label}</span>
+                <span className="text-xs font-medium text-white/85">{f.label}</span>
               </div>
             ))}
           </div>
@@ -218,9 +230,9 @@ function BrandPanel({ companyName }: { companyName: string }) {
         </div>
       </div>
 
-      <div className="relative flex items-center justify-between border-t border-slate-200 px-10 py-4">
+      <div className="relative flex items-center justify-between border-t border-white/10 px-10 py-4">
         <LiveClock />
-        <span className="flex items-center gap-1.5 text-xs text-slate-400">
+        <span className="flex items-center gap-1.5 text-xs text-white/50">
           <ProductLogo className="h-3.5 w-3.5" />
           HelpDesk Pro v1.0.0
         </span>
