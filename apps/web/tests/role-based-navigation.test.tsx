@@ -34,7 +34,7 @@ describe("Role-based navigation", () => {
 
   it("shows the full admin navigation for administrators", () => {
     renderSidebar("Administrator");
-    for (const label of ["Users", "Departments", "Categories", "SLA Policies", "Audit Logs", "System Settings"]) {
+    for (const label of ["Users", "Departments", "Categories", "Priorities & SLA", "Audit Logs", "System Settings"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
