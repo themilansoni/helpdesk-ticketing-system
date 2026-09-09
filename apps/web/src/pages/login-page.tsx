@@ -55,6 +55,43 @@ const LIVE_TIPS = [
 
 const HEADLINE = "Relax, we will do IT for you!!!";
 
+const PARTICLE_COLORS = ["#5eead4", "#67e8f9", "#ffffff"];
+const PARTICLES = Array.from({ length: 18 }, (_, i) => ({
+  id: i,
+  left: 4 + Math.random() * 92,
+  size: 2 + Math.random() * 4,
+  duration: 9 + Math.random() * 9,
+  delay: -(Math.random() * 18),
+  drift: (Math.random() - 0.5) * 40,
+  opacity: 0.25 + Math.random() * 0.35,
+  color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
+}));
+
+function FloatingParticles() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      {PARTICLES.map((p) => (
+        <span
+          key={p.id}
+          className="animate-rise absolute bottom-0 rounded-full"
+          style={
+            {
+              left: `${p.left}%`,
+              width: p.size,
+              height: p.size,
+              backgroundColor: p.color,
+              animationDuration: `${p.duration}s`,
+              animationDelay: `${p.delay}s`,
+              "--rise-drift": `${p.drift}px`,
+              "--rise-opacity": p.opacity,
+            } as React.CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 function TypewriterHeadline() {
   const [chars, setChars] = useState(0);
 
@@ -183,6 +220,7 @@ function BrandPanel({ companyName }: { companyName: string }) {
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
       />
+      <FloatingParticles />
 
       <div className="relative flex items-center justify-between px-10 pt-8">
         <span className="flex items-center gap-2 text-sm font-semibold tracking-tight text-white">

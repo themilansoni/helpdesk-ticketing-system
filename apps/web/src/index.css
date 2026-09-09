@@ -123,3 +123,16 @@
 .animate-fade-in-up {
   animation: fade-in-up 400ms ease-out;
 }
+
+@keyframes rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: var(--rise-opacity, 0.6); }
+  90% { opacity: var(--rise-opacity, 0.6); }
+  100% { transform: translate(var(--rise-drift, 12px), -112vh); opacity: 0; }
+}
+
+.animate-rise {
+  animation-name: rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
