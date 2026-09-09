@@ -35,7 +35,19 @@ export function hasPermission(role: RoleName | undefined | null, permission: Per
   return (PERMISSIONS[permission] as readonly string[]).includes(role);
 }
 
-export const NAV_BY_ROLE: Record<RoleName, Array<{ label: string; path: string }>> = {
+export interface NavItem {
+  label: string;
+  path: string;
+  children?: Array<{ label: string; path: string }>;
+}
+
+const ASSET_CHILDREN = [
+  { label: "Consumables", path: "/consumables" },
+  { label: "Accessories", path: "/accessories" },
+  { label: "Licenses", path: "/licenses" },
+];
+
+export const NAV_BY_ROLE: Record<RoleName, NavItem[]> = {
   Employee: [
     { label: "Dashboard", path: "/dashboard" },
     { label: "My Tickets", path: "/tickets" },
@@ -52,10 +64,7 @@ export const NAV_BY_ROLE: Record<RoleName, Array<{ label: string; path: string }
     { label: "Unassigned Tickets", path: "/tickets?unassigned=1" },
     { label: "SLA Breaches", path: "/tickets?sla=breached" },
     { label: "Knowledge Base", path: "/knowledge-base" },
-    { label: "Assets", path: "/assets" },
-    { label: "Consumables", path: "/consumables" },
-    { label: "Accessories", path: "/accessories" },
-    { label: "Licenses", path: "/licenses" },
+    { label: "Assets", path: "/assets", children: ASSET_CHILDREN },
     { label: "Reports", path: "/reports" },
   ],
   Manager: [
@@ -63,10 +72,7 @@ export const NAV_BY_ROLE: Record<RoleName, Array<{ label: string; path: string }
     { label: "All Tickets", path: "/tickets" },
     { label: "My Tickets", path: "/tickets?assignee=me" },
     { label: "Knowledge Base", path: "/knowledge-base" },
-    { label: "Assets", path: "/assets" },
-    { label: "Consumables", path: "/consumables" },
-    { label: "Accessories", path: "/accessories" },
-    { label: "Licenses", path: "/licenses" },
+    { label: "Assets", path: "/assets", children: ASSET_CHILDREN },
     { label: "Reports", path: "/reports" },
     { label: "Notifications", path: "/notifications" },
     { label: "Profile", path: "/profile" },
@@ -80,10 +86,7 @@ export const NAV_BY_ROLE: Record<RoleName, Array<{ label: string; path: string }
     { label: "Categories", path: "/admin/categories" },
     { label: "Priorities & SLA", path: "/admin/priorities" },
     { label: "Automation", path: "/admin/automation" },
-    { label: "Assets", path: "/assets" },
-    { label: "Consumables", path: "/consumables" },
-    { label: "Accessories", path: "/accessories" },
-    { label: "Licenses", path: "/licenses" },
+    { label: "Assets", path: "/assets", children: ASSET_CHILDREN },
     { label: "Knowledge Base", path: "/knowledge-base" },
     { label: "Reports", path: "/reports" },
     { label: "Audit Logs", path: "/admin/audit-logs" },
