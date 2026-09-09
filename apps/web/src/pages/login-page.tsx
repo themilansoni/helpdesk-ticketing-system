@@ -30,10 +30,16 @@ const DEMO_ACCOUNTS = [
 ];
 
 const FEATURES = [
-  { icon: Ticket, label: "Track every ticket", description: "Request to resolution, one queue." },
-  { icon: Gauge, label: "Stay on top of SLAs", description: "Breach warnings before they happen." },
-  { icon: Laptop, label: "Manage your assets", description: "Know who has what, and when." },
-  { icon: BookOpen, label: "Knowledge base", description: "Let people self-serve the easy ones." },
+  { icon: Ticket, label: "Ticket tracking" },
+  { icon: Gauge, label: "SLA monitoring" },
+  { icon: Laptop, label: "Asset management" },
+  { icon: BookOpen, label: "Knowledge base" },
+];
+
+const PREVIEW_TICKETS = [
+  { id: "HD-2318", title: "VPN connection dropping", tone: "bg-rose-400" },
+  { id: "HD-2317", title: "Laptop replacement request", tone: "bg-amber-400" },
+  { id: "HD-2315", title: "Shared drive access", tone: "bg-emerald-400" },
 ];
 
 function LiveClock() {
@@ -53,21 +59,54 @@ function LiveClock() {
   );
 }
 
+function ProductPreviewCard() {
+  return (
+    <div className="relative rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/20 backdrop-blur-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="h-2 w-2 rounded-full bg-white/25" />
+        <span className="ml-1.5 text-[11px] font-medium text-white/40">Ticket Dashboard</span>
+        <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          Live
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {PREVIEW_TICKETS.map((t) => (
+          <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.05] px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.tone}`} />
+              <span className="truncate text-xs text-white/80">{t.title}</span>
+            </div>
+            <span className="shrink-0 font-mono text-[10px] text-white/35">{t.id}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-end gap-1">
+        {[40, 65, 50, 80, 60, 95, 70].map((h, i) => (
+          <div key={i} className="flex-1 rounded-t-sm bg-gradient-to-t from-teal-400/70 to-cyan-300/70" style={{ height: `${h * 0.3}px` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BrandPanel({ companyName, companyLogo }: { companyName: string; companyLogo: string }) {
   return (
-    <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-950 via-primary to-violet-900 p-10 text-white lg:flex">
-      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-white/[0.07]" />
+    <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-teal-950 via-cyan-950 to-slate-900 p-10 text-white lg:flex">
+      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-white/[0.06]" />
       <div
         aria-hidden
-        className="animate-drift pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl"
+        className="animate-drift pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl"
       />
       <div
         aria-hidden
-        className="animate-drift-reverse pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-cyan-300/20 blur-3xl"
+        className="animate-drift-reverse pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-sky-400/20 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-indigo-950/80 via-transparent to-transparent"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
       />
 
       <div className="relative flex items-center justify-between">
@@ -85,34 +124,38 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
         </div>
       </div>
 
-      <div className="relative space-y-8">
+      <div className="relative grid flex-1 grid-cols-1 items-center gap-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
             Internal IT Service Platform
           </span>
-          <h2 className="text-4xl font-bold leading-[1.1] tracking-tight">
-            IT support your team will <span className="bg-gradient-to-r from-cyan-300 to-fuchsia-300 bg-clip-text text-transparent">actually enjoy</span> using.
+          <h2 className="text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl">
+            IT support your team will{" "}
+            <span className="bg-gradient-to-r from-teal-300 to-cyan-200 bg-clip-text text-transparent">actually enjoy</span> using.
           </h2>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70">
             {companyName}'s internal help desk for tracking tickets, managing assets, and keeping SLAs on track — all
             in one place.
           </p>
+
+          <div className="mt-8 flex flex-wrap gap-2.5">
+            {FEATURES.map((f) => (
+              <div
+                key={f.label}
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] py-1.5 pl-2 pr-3.5 backdrop-blur-sm"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                  <f.icon className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-xs font-medium text-white/85">{f.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {FEATURES.map((f) => (
-            <div
-              key={f.label}
-              className="rounded-xl border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm transition-colors hover:bg-white/[0.09]"
-            >
-              <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <f.icon className="h-4 w-4" />
-              </div>
-              <p className="text-sm font-medium">{f.label}</p>
-              <p className="mt-0.5 text-xs text-white/60">{f.description}</p>
-            </div>
-          ))}
+        <div className="hidden xl:block">
+          <ProductPreviewCard />
         </div>
       </div>
 
@@ -154,14 +197,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen lg:grid-cols-[3fr_2fr]">
       <BrandPanel companyName={companyName} companyLogo={companyLogo} />
 
       <div className="relative flex items-center justify-center overflow-hidden bg-slate-50 p-4">
         <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-slate-300/60" />
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-[32rem] w-[32rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-primary/10 blur-3xl"
+          className="pointer-events-none absolute right-0 top-0 h-[32rem] w-[32rem] -translate-y-1/3 translate-x-1/3 rounded-full bg-teal-500/10 blur-3xl"
         />
 
         <div className="relative w-full max-w-sm">
@@ -169,7 +212,7 @@ export default function LoginPage() {
             <BrandLogo
               companyName={companyName}
               companyLogo={companyLogo}
-              className="mb-3 h-12 w-12 rounded-xl shadow-md"
+              className="mb-3 h-12 w-12 rounded-xl bg-teal-600 text-white shadow-md"
               iconClassName="h-6 w-6"
             />
             <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
@@ -193,7 +236,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@helpdesk.local"
-                    className="h-10 rounded-xl pl-9"
+                    className="h-10 rounded-xl pl-9 focus-visible:ring-teal-500"
                   />
                 </div>
               </div>
@@ -209,7 +252,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-10 rounded-xl pl-9"
+                    className="h-10 rounded-xl pl-9 focus-visible:ring-teal-500"
                   />
                 </div>
               </div>
@@ -218,7 +261,11 @@ export default function LoginPage() {
                   {error}
                 </p>
               )}
-              <Button type="submit" className="group h-10 w-full rounded-xl" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                className="group h-10 w-full rounded-xl bg-teal-600 hover:bg-teal-700"
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? (
                   "Signing in..."
                 ) : (
@@ -244,7 +291,7 @@ export default function LoginPage() {
                     setPassword("Passw0rd!123");
                   }}
                 >
-                  <acc.icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  <acc.icon className="h-3.5 w-3.5 shrink-0 text-teal-600" />
                   <span className="truncate text-muted-foreground">{acc.role}</span>
                 </button>
               ))}
