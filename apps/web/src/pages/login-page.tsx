@@ -110,10 +110,7 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
       />
 
       <div className="flex items-center justify-between border-b border-slate-900/5 bg-white px-8 py-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-10" iconClassName="h-5 w-5" className="bg-teal-600 text-white" />
-          <span className="text-sm font-semibold tracking-tight text-slate-900">{companyName}</span>
-        </div>
+        <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-11" iconClassName="h-5 w-5" className="bg-teal-600 text-white" />
 
         <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
           <span className="relative flex h-2 w-2">
@@ -212,11 +209,10 @@ export default function LoginPage() {
             <BrandLogo
               companyName={companyName}
               companyLogo={companyLogo}
-              heightClass="h-16"
+              heightClass="h-20"
               className="mb-3 rounded-xl bg-teal-600 text-white shadow-md"
-              iconClassName="h-7 w-7"
+              iconClassName="h-8 w-8"
             />
-            <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
             <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>
           </div>
 
