@@ -208,18 +208,18 @@ export default function LoginPage() {
         <ThemeToggle className="absolute right-4 top-4" />
 
         <div className="relative w-full max-w-sm">
-          <div className="mb-6 flex flex-col items-center text-center lg:hidden">
-            <BrandLogo
-              companyName={companyName}
-              companyLogo={companyLogo}
-              heightClass="h-20"
-              className="mb-3 rounded-xl bg-teal-600 text-white shadow-md"
-              iconClassName="h-8 w-8"
-            />
-            <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>
-          </div>
-
           <div className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-slate-900/5">
+            <div className="mb-6 flex flex-col items-center text-center lg:hidden">
+              <BrandLogo
+                companyName={companyName}
+                companyLogo={companyLogo}
+                heightClass="h-16"
+                className="mb-3 rounded-xl shadow-sm"
+                iconClassName="h-7 w-7"
+              />
+              <p className="text-xs text-muted-foreground">Internal IT Service Management Platform</p>
+            </div>
+
             <p className="text-lg font-semibold text-foreground">Sign in to your account</p>
             <p className="mt-1 text-sm text-muted-foreground">Welcome back. Enter your work email to continue.</p>
 
