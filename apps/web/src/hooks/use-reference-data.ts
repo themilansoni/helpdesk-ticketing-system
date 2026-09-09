@@ -32,3 +32,19 @@ export function useMyAssets(userId?: string) {
     enabled: !!userId,
   });
 }
+
+const DEFAULT_COMPANY_NAME = "HelpDesk Pro";
+
+export function useCompanyBranding() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => referenceDb.getSystemSettings(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const find = (key: string) => data?.find((s) => s.key === key)?.value || "";
+  return {
+    companyName: find("company_name") || DEFAULT_COMPANY_NAME,
+    companyLogo: find("company_logo"),
+    isLoading,
+  };
+}

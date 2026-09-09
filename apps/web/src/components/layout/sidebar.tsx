@@ -20,6 +20,7 @@ import {
   ListTodo,
 } from "lucide-react";
 import { NAV_BY_ROLE, type RoleName } from "@helpdesk/shared";
+import { useCompanyBranding } from "@/hooks/use-reference-data";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, typeof LayoutDashboard> = {
@@ -54,6 +55,7 @@ interface SidebarProps {
 
 export function Sidebar({ role, open, onNavigate }: SidebarProps) {
   const items = NAV_BY_ROLE[role] ?? [];
+  const { companyName, companyLogo } = useCompanyBranding();
 
   return (
     <aside
@@ -63,11 +65,15 @@ export function Sidebar({ role, open, onNavigate }: SidebarProps) {
       )}
     >
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-          H
-        </div>
+        {companyLogo ? (
+          <img src={companyLogo} alt={companyName} className="h-8 w-8 rounded-md object-contain" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+            {companyName.charAt(0).toUpperCase()}
+          </div>
+        )}
         <div className="leading-tight">
-          <p className="text-sm font-bold text-foreground">HelpDesk Pro</p>
+          <p className="text-sm font-bold text-foreground">{companyName}</p>
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IT Service Management</p>
         </div>
       </div>

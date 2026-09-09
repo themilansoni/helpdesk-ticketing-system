@@ -75,7 +75,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /systemSettings/{key} {
-      allow read: if signedIn();
+      // Public read: the login page (pre-auth) needs company_name/company_logo
+      // for branding, and nothing else stored here is sensitive.
+      allow read: if true;
       allow write: if isAdmin();
     }
 

@@ -1,15 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { render } from "@testing-library/react";
 import { Sidebar } from "@/components/layout/sidebar";
+import { renderWithProviders } from "./test-utils";
+
+vi.mock("@/lib/db", () => ({
+  referenceDb: {
+    getSystemSettings: vi.fn().mockResolvedValue([]),
+  },
+}));
 
 function renderSidebar(role: "Employee" | "Technician" | "Administrator") {
-  return render(
-    <MemoryRouter>
-      <Sidebar role={role} open={true} />
-    </MemoryRouter>
-  );
+  return renderWithProviders(<Sidebar role={role} open={true} />);
 }
 
 describe("Role-based navigation", () => {

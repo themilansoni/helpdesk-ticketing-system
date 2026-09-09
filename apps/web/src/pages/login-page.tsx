@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { LifeBuoy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/firebase-errors";
+import { useCompanyBranding } from "@/hooks/use-reference-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ const DEMO_ACCOUNTS = [
 
 export default function LoginPage() {
   const { user, login } = useAuth();
+  const { companyName, companyLogo } = useCompanyBranding();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -47,10 +49,18 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-indigo-50 p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-            <LifeBuoy className="h-6 w-6" />
-          </div>
-          <h1 className="text-xl font-bold text-foreground">HelpDesk Pro</h1>
+          {companyLogo ? (
+            <img
+              src={companyLogo}
+              alt={companyName}
+              className="mb-3 h-12 w-12 rounded-xl object-contain shadow-md"
+            />
+          ) : (
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+              <LifeBuoy className="h-6 w-6" />
+            </div>
+          )}
+          <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
           <p className="text-sm text-muted-foreground">Internal IT Service Management Platform</p>
         </div>
 
