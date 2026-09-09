@@ -65,11 +65,13 @@ export function Sidebar({ role, open, onNavigate }: SidebarProps) {
         open ? "translate-x-0" : "-translate-x-full"
       )}
     >
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-9" />
-        <div className="leading-tight">
-          <p className="text-sm font-bold text-foreground">{companyName}</p>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IT Service Management</p>
+      <div className="flex h-14 items-center gap-2.5 overflow-hidden border-b border-border px-4">
+        <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-8" className="shrink-0" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-sm font-bold text-foreground" title={companyName}>
+            {companyName}
+          </p>
+          <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">IT Service Management</p>
         </div>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-thin">
