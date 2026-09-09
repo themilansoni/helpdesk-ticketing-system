@@ -94,37 +94,37 @@ function ProductPreviewCard() {
 
 function BrandPanel({ companyName, companyLogo }: { companyName: string; companyLogo: string }) {
   return (
-    <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-teal-950 via-cyan-950 to-slate-900 p-10 text-white lg:flex">
-      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 text-white/[0.06]" />
+    <div className="relative hidden flex-col overflow-hidden bg-gradient-to-br from-teal-950 via-cyan-950 to-slate-900 text-white lg:flex">
+      <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 -z-10 text-white/[0.06]" />
       <div
         aria-hidden
-        className="animate-drift pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl"
+        className="animate-drift pointer-events-none absolute -left-24 -top-24 -z-10 h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl"
       />
       <div
         aria-hidden
-        className="animate-drift-reverse pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-sky-400/20 blur-3xl"
+        className="animate-drift-reverse pointer-events-none absolute -bottom-32 -right-16 -z-10 h-96 w-96 rounded-full bg-sky-400/20 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"
       />
 
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-11" iconClassName="h-5 w-5" tone="dark" />
-          <span className="text-sm font-semibold tracking-tight">{companyName}</span>
+      <div className="flex items-center justify-between border-b border-slate-900/5 bg-white px-8 py-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <BrandLogo companyName={companyName} companyLogo={companyLogo} heightClass="h-10" iconClassName="h-5 w-5" className="bg-teal-600 text-white" />
+          <span className="text-sm font-semibold tracking-tight text-slate-900">{companyName}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
+        <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
           </span>
           All systems operational
         </div>
       </div>
 
-      <div className="relative grid flex-1 grid-cols-1 items-center gap-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="relative grid flex-1 grid-cols-1 items-center gap-10 px-10 py-8 xl:grid-cols-[1.1fr_0.9fr]">
         <div>
           <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white/80 backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
@@ -159,7 +159,7 @@ function BrandPanel({ companyName, companyLogo }: { companyName: string; company
         </div>
       </div>
 
-      <div className="relative flex items-center justify-between border-t border-white/10 pt-4">
+      <div className="relative flex items-center justify-between border-t border-white/10 px-10 py-4">
         <LiveClock />
         <span className="text-xs text-white/50">HelpDesk Pro v1.0.0</span>
       </div>
@@ -297,6 +297,19 @@ export default function LoginPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-2 text-center">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
+              Secured by enterprise-grade authentication
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Need access? <span className="font-medium text-foreground">Contact your IT administrator</span> to get an account.
+            </p>
+            <p className="text-[11px] text-muted-foreground/60">
+              &copy; {new Date().getFullYear()} {companyName}. All rights reserved.
+            </p>
           </div>
         </div>
       </div>
